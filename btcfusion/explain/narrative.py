@@ -30,11 +30,20 @@ PHRASES: dict[str, tuple[str, str]] = {
     "two_output_frac": ("almost every spend has exactly two outputs, consistent with a "
                         "payment-plus-change or peel pattern",
                         "spends have varied output counts"),
-    "output_entropy_mean": ("output values vary naturally across payments",
-                            "output values are near-identical - the CoinJoin/mixer signature"),
-    "output_entropy_min": ("no transaction shows uniform output values",
-                           "at least one transaction pays identical amounts to many "
-                           "outputs - a mixer fingerprint"),
+    # NOTE the direction: entropy is MAXIMAL when outputs share one value, so
+    # high entropy is the mixer signal and low entropy means one output dominates.
+    "output_entropy_mean": ("output values are evenly sized across payments, as a "
+                            "mixer's equal-value outputs would be",
+                            "one output dominates the value in a typical payment - "
+                            "the peel-chain shape"),
+    "output_entropy_min": ("even the least uniform transaction pays evenly sized outputs",
+                           "at least one transaction sends nearly all its value to a "
+                           "single output"),
+    "output_uniformity_max": ("at least one transaction pays the identical amount to many "
+                              "outputs - the CoinJoin/mixer fingerprint",
+                              "no transaction repeats an output value"),
+    "output_uniformity_mean": ("output values are habitually repeated across payments",
+                               "output values are essentially always distinct"),
     "script_uniformity": ("every output uses the same script type, which is unusual for "
                           "organic payments and typical of mixers",
                           "output script types are mixed, as in normal payment traffic"),

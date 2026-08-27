@@ -27,10 +27,15 @@ STRUCTURING_BAND = (0.80, 0.999)  # "just under a round threshold"
 
 
 def _entropy_of_list(col: str) -> pl.Expr:
-    """Shannon entropy of a list of amounts, normalised to [0,1].
+    """Shannon entropy of the output VALUE SHARES, normalised to [0,1].
 
-    Near zero means every output is the same size - the CoinJoin / mixer
-    signature. Near one means a natural spread of payment sizes.
+    DIRECTION MATTERS AND IS EASY TO GET BACKWARDS - we did, and a property test
+    caught it. Shannon entropy is MAXIMAL for a uniform distribution, so a
+    CoinJoin paying 24 identical outputs scores ~1.0, not ~0. Near zero means one
+    output dominates the value (a peel), which is the opposite signature.
+
+    Use `output_uniformity` below for "are the outputs the same size" - it
+    measures repeated values directly and cannot be read upside down.
     """
     total = pl.col(col).list.sum()
     p = pl.col(col).list.eval(pl.element() / pl.element().sum().clip(1))
@@ -47,6 +52,12 @@ def transaction_features(txs: pl.DataFrame) -> pl.DataFrame:
         pl.col("output_amounts").list.len().alias("n_outputs"),
         pl.col("input_addresses").list.len().alias("n_inputs"),
         _entropy_of_list("output_amounts").alias("output_entropy"),
+        # Share of outputs that are duplicates of another output's value. A
+        # CoinJoin paying N identical amounts scores (N-1)/N; organic payments
+        # with all-distinct values score 0. Unambiguous in direction, unlike
+        # entropy, which is why the mixer matcher keys on this.
+        (1.0 - pl.col("output_amounts").list.n_unique()
+         / pl.col("output_amounts").list.len().clip(1)).alias("output_uniformity"),
         pl.col("output_amounts").list.min().alias("min_out"),
         pl.col("output_amounts").list.max().alias("max_out"),
     ])
@@ -145,6 +156,8 @@ def _amount_features(t: pl.DataFrame) -> pl.DataFrame:
         pl.col("value_out").std().alias("std_value_out"),
         pl.col("output_entropy").mean().alias("output_entropy_mean"),
         pl.col("output_entropy").min().alias("output_entropy_min"),
+        pl.col("output_uniformity").max().alias("output_uniformity_max"),
+        pl.col("output_uniformity").mean().alias("output_uniformity_mean"),
         pl.col("peel_ratio").mean().alias("peel_ratio_mean"),
         pl.col("peel_ratio").is_not_null().mean().alias("two_output_frac"),
         pl.col("fee_ratio").mean().alias("fee_ratio_mean"),
@@ -278,7 +291,8 @@ def feature_names(matrix: pl.DataFrame) -> list[str]:
 
 
 TX_FEATURES = [
-    "value_out", "n_outputs", "n_inputs", "output_entropy", "peel_ratio",
+    "value_out", "n_outputs", "n_inputs", "output_entropy", "output_uniformity",
+    "peel_ratio",
     "fee_ratio", "round_frac", "structuring_frac", "hour_utc", "weekday",
     "n_announcements", "in_out_ratio_tx", "parent_entity_score",
     "parent_n_tx", "value_share_of_entity",

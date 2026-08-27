@@ -95,17 +95,28 @@ def match_typologies(fm: pl.DataFrame, txs: pl.DataFrame,
                 detail=[{"txid": t["txid"], "ts": str(t["timestamp"])} for t in txlist[:3]]))
 
         # --- mixer signature -----------------------------------------------
-        # Near-identical output values, i.e. output entropy collapsing toward zero,
-        # combined with uniform script types across outputs.
-        if (r.get("output_entropy_min", 1) or 1) < 0.30 and r.get("max_n_outputs", 0) >= 6 \
-                and r.get("script_uniformity", 0) > 0.9:
+        # Many outputs paying the SAME value, plus uniform script types. Keyed on
+        # output_uniformity rather than entropy: entropy is maximal for uniform
+        # values, so an earlier version of this rule matched the exact inverse of
+        # a CoinJoin. A property test caught it.
+        # Equal output VALUES is the primary signal and an excellent one:
+        # mixer-archetype entities average 0.86 here against under 0.02 for every
+        # other archetype. Script uniformity corroborates and raises the strength,
+        # but does NOT gate - gating on it suppressed the rule entirely on wallets
+        # whose participants used mixed address types.
+        _unif = float(r.get("output_uniformity_max", 0) or 0)
+        if _unif >= 0.5 and r.get("max_n_outputs", 0) >= 6:
             examples = sorted(txlist, key=lambda t: -len(t["output_amounts"]))[:2]
             ev.append(Evidence(
                 typology="mixer_passthrough",
-                strength=float(1.0 - r["output_entropy_min"]),
-                summary=(f"Mixer signature: equal-value outputs (entropy "
-                         f"{r['output_entropy_min']:.2f}) with uniform script types - "
-                         f"the CoinJoin fingerprint."),
+                strength=float(min(1.0, _unif * (1.0 + 0.3 * float(
+                    r.get("script_uniformity", 0) or 0)))),
+                summary=(f"Mixer signature: {_unif:.0%} of outputs in one transaction "
+                         f"repeat the same value"
+                         + (f", and {float(r.get('script_uniformity', 0)):.0%} of outputs "
+                            f"share one script type" if float(r.get("script_uniformity", 0) or 0) > 0.7
+                            else "")
+                         + " - the CoinJoin fingerprint."),
                 txids=[t["txid"] for t in examples],
                 detail=[{"txid": t["txid"], "n_outputs": len(t["output_amounts"]),
                          "distinct_values": len(set(t["output_amounts"]))}

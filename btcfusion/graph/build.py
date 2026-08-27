@@ -65,7 +65,13 @@ def active_entities(txs: pl.DataFrame, edges: pl.DataFrame, min_degree: int = 1)
     key = "src" if "src" in deg.columns else deg.columns[0]
     keep = deg.filter((pl.col("out_deg") >= min_degree)
                       | (pl.col("in_deg") >= max(2, min_degree + 1)))
-    return keep.get_column(key).drop_nulls().to_list()
+    # SORTED, and that is load-bearing. Polars group_by returns rows in
+    # non-deterministic order, so an unsorted list here gave the igraph vertices
+    # different indices on every run. Betweenness samples a fixed set of pivot
+    # INDICES, so different indices meant different pivots, which meant the
+    # topology features were not reproducible from a fixed seed at all. The
+    # golden-file test caught it; nothing else would have.
+    return sorted(keep.get_column(key).drop_nulls().to_list())
 
 
 class EntityGraph:
@@ -113,8 +119,15 @@ class EntityGraph:
         if n > 0:
             k = min(n, 400)
             pivots = np.random.default_rng(0).choice(n, size=k, replace=False).tolist()
-            bt = np.asarray(und.betweenness(sources=pivots), dtype=np.float32)
-            out["betweenness_est"] = bt * (n / max(1, k))
+            bt = np.asarray(und.betweenness(sources=pivots), dtype=np.float64)
+            # ROUNDED ON PURPOSE. igraph accumulates betweenness in parallel and
+            # floating-point addition is not associative, so the reduction order
+            # varies run to run and the last bits differ. That made the whole
+            # feature matrix non-reproducible from a fixed seed - the golden-file
+            # test caught it. The value is a pivot-sampled ESTIMATE used only to
+            # RANK entities as bridges, so digits beyond this are noise anyway.
+            out["betweenness_est"] = np.round(
+                bt * (n / max(1, k)), 4).astype(np.float32)
         return out
 
 

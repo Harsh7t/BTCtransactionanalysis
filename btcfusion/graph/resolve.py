@@ -113,7 +113,13 @@ def resolve_entities(txs: pl.DataFrame) -> tuple[pl.DataFrame, dict]:
     #
     # It is a heuristic, not a proof: mixed-wallet users break it, and we tag
     # merges by which heuristic produced them so the error is attributable.
-    first_seen = (outs.sort("timestamp").group_by("address").agg(pl.col("txid").first())
+    # Sort by (timestamp, txid), NOT timestamp alone. Block timestamps have
+    # one-second resolution so ties are routine, and with a tie `.first()` returns
+    # whichever row happens to come first in the frame - which makes the whole
+    # clustering depend on input row order. A property test caught exactly that:
+    # the same two transactions in reverse order produced different entities.
+    first_seen = (outs.sort(["timestamp", "txid"]).group_by("address")
+                  .agg(pl.col("txid").first())
                   .rename({"txid": "first_txid"}))
     small_out = txs.filter((pl.col("output_addresses").list.len() >= 2)
                            & (pl.col("output_addresses").list.len() <= 6)) \

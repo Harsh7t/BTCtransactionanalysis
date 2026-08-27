@@ -78,19 +78,25 @@ def cmd_train(args) -> int:
 
 
 def cmd_leak_test(args) -> int:
+    """Gate the build on generator integrity.
+
+    stdout is pure JSON so it can be redirected straight to a file; the human
+    verdict goes to stderr. Mixing the two made artifacts/v1/leak_test.json
+    unparseable, which silently blanked the Model panel's integrity section.
+    """
     from .generator.leak_test import leak_test
     ok, report = leak_test(Path(args.file), Path(args.truth))
+    print(json.dumps(report, indent=2))
     if args.out:
-        Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-        Path(args.out).write_text(json.dumps(report, indent=2))
-        print(f"wrote {args.out}", file=sys.stderr)
-    else:
-        print(json.dumps(report, indent=2))
+        out = Path(args.out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(report, indent=2))
     if not ok:
-        print("\nLEAK TEST FAILED — the generator encodes a shortcut. "
-              "Every downstream number is meaningless until this is fixed.", file=sys.stderr)
+        print("\nLEAK TEST FAILED - the generator encodes a shortcut. Every downstream "
+              "number is meaningless until this is fixed.", file=sys.stderr)
         return 1
-    print("\nLEAK TEST PASSED — non-predictive fields alone score at baseline.")
+    print("\nLEAK TEST PASSED - fields with no constructed path to the label score at "
+          "the base rate.", file=sys.stderr)
     return 0
 
 
@@ -155,7 +161,7 @@ def main(argv=None) -> int:
     lt = sub.add_parser("leak-test", help="prove the generator has no shortcut")
     lt.add_argument("file")
     lt.add_argument("truth")
-    lt.add_argument("--out", help="write the report as clean JSON to this path")
+    lt.add_argument("--out", default=str(ROOT / "artifacts" / "v1" / "leak_test.json"))
     lt.set_defaults(func=cmd_leak_test)
 
     sv = sub.add_parser("sensitivity", help="attribution accuracy vs observation coverage")

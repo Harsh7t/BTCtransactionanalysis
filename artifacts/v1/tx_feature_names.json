@@ -1,1 +1,1 @@
-["value_out", "n_outputs", "n_inputs", "output_entropy", "peel_ratio", "fee_ratio", "round_frac", "structuring_frac", "hour_utc", "weekday", "n_announcements", "in_out_ratio_tx", "parent_entity_score", "parent_n_tx", "value_share_of_entity"]
+["value_out", "n_outputs", "n_inputs", "output_entropy", "output_uniformity", "peel_ratio", "fee_ratio", "round_frac", "structuring_frac", "hour_utc", "weekday", "n_announcements", "in_out_ratio_tx", "parent_entity_score", "parent_n_tx", "value_share_of_entity"]

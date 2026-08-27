@@ -172,10 +172,20 @@ class Ledger:
 
     def equal_split(self, actor: Actor, targets: list[Actor], amount_each: int, ts: int,
                     **kw) -> Tx | None:
-        """CoinJoin-shaped spend: identical output values, no address reuse.
+        """CoinJoin-shaped spend: identical output values AND one script type.
 
-        Uniform output value is the single strongest mixer signal available, and
-        it is what drives output_value_entropy in the feature set.
+        Two signals, not one. Equal output value is the strongest, and real
+        CoinJoin implementations (Wasabi, JoinMarket) additionally require every
+        output to use the SAME script type - participants cannot mix p2wpkh and
+        p2pkh in one round, because uniform outputs are what makes them
+        indistinguishable. Paying each participant at their own address type,
+        as this used to, destroyed the second signal and left the matcher
+        unable to key on it.
         """
-        recips = [(self.receiving_address(t), amount_each) for t in targets]
+        recips = []
+        for t in targets:
+            addr = make_address(self.rng, actor.script_type)
+            t.addresses.append(addr)
+            self.register(t, addr)
+            recips.append((addr, amount_each))
         return self.spend(actor, recips, ts, equal_outputs=True, **kw)

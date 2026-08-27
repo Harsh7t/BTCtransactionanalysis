@@ -26,7 +26,7 @@ run:              ## score a capture end to end   (make run FILE=path/to/x.csv)
 	$(PY) -m btcfusion.cli run $(or $(FILE),$(CAPTURE)) --artifacts $(ART)
 
 leak-test:        ## prove the generator encodes no shortcut. MUST pass.
-	$(PY) -m btcfusion.cli leak-test $(CAPTURE) $(TRUTH) | tee $(ART)/leak_test.json
+	$(PY) -m btcfusion.cli leak-test $(CAPTURE) $(TRUTH) --out $(ART)/leak_test.json >/dev/null
 
 serve:            ## run the API + built UI on :$(PORT)
 	$(PY) -m btcfusion.cli serve --port $(PORT)
@@ -74,3 +74,10 @@ sensitivity:      ## attribution accuracy vs observation coverage -> the honest 
 
 validate-external: ## validate the chain-side detector on real labelled data (Elliptic)
 	$(PY) -m btcfusion.cli validate-external
+
+golden-update:    ## regenerate the golden feature fingerprint (READ THE DIFF)
+	@$(PY) -c "import tempfile, json, pathlib, sys; sys.path.insert(0,'.'); \
+from tests.test_golden import _fingerprint; \
+d=pathlib.Path('tests/golden'); d.mkdir(parents=True, exist_ok=True); \
+(d/'feature_matrix.json').write_text(json.dumps(_fingerprint(pathlib.Path(tempfile.mkdtemp())), indent=2)); \
+print('wrote tests/golden/feature_matrix.json')"
