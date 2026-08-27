@@ -98,14 +98,12 @@ def train(capture: Path, truth_dir: Path, artifacts: Path,
     results: dict = {}
     for name, idx in (("train", tr), ("calib", ca), ("test", te)):
         r_raw = raw_scores(idx)
-        r_cal = cal.transform(r_raw, adjust_prior=True)
+        r_cal = cal.transform(r_raw)
         results[name] = M.evaluate(y[idx], r_cal, threshold)
         results[name]["ece_uncalibrated"] = round(
             M.expected_calibration_error(y[idx], r_raw), 4)
-        results[name]["ece_no_prior_correction"] = round(
-            M.expected_calibration_error(y[idx], cal.transform(r_raw)), 4)
         results[name]["calibration_fold_prior"] = round(cal.calib_prior, 4)
-        results[name]["estimated_prior"] = round(cal.last_estimated_prior, 4)
+        results[name]["estimated_prior"] = round(cal.estimate_prior(r_cal), 4)
 
     if len(ho):
         # The held-out set is 100% positive by construction, so PR-AUC on it alone
@@ -114,8 +112,8 @@ def train(capture: Path, truth_dir: Path, artifacts: Path,
         # laundering pattern it has never seen out of a realistic haystack?
         neg = te[y[te] == 0]
         mixed = np.concatenate([ho, neg])
-        mixed_scores = cal.transform(raw_scores(mixed), adjust_prior=True)
-        ho_cal = cal.transform(raw_scores(ho), adjust_prior=True)
+        mixed_scores = cal.transform(raw_scores(mixed))
+        ho_cal = cal.transform(raw_scores(ho))
         results["holdout_typology"] = {
             **M.evaluate(y[mixed], mixed_scores, threshold),
             "recall_at_threshold": round(M.held_out_recall(y[ho], ho_cal, threshold), 4),
@@ -128,7 +126,7 @@ def train(capture: Path, truth_dir: Path, artifacts: Path,
                      "generalisation to unseen typologies."),
         }
 
-    te_cal = cal.transform(raw_scores(te), adjust_prior=True)
+    te_cal = cal.transform(raw_scores(te))
     reliability = M.reliability_curve(y[te], te_cal)
 
     # ---- ablation: where does the lift actually come from? ---------------

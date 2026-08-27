@@ -39,51 +39,15 @@ def fuse_scores(supervised: np.ndarray, novelty: np.ndarray, evidence: np.ndarra
 PROB_FLOOR, PROB_CEIL = 0.01, 0.97
 
 
-def prior_shift_correct(p: np.ndarray, calib_prior: float,
-                        iters: int = 50, tol: float = 1e-7) -> tuple[np.ndarray, float]:
-    """Correct calibrated probabilities for a shifted class prior.
-
-    WHY THIS IS NEEDED. A calibrator learns P(illicit | score) on the fold it was
-    fitted to, and that mapping is only valid while the base rate stays put. Ours
-    does not: laundering campaigns bunch in time, so the calibration fold can carry
-    several times the illicit rate of the population actually being scored. The
-    result is a model that says 0.86 where the truth is 0.38 - and the reliability
-    diagram, which is the whole credibility claim, shows it plainly.
-
-    The fix is the standard EM procedure for label shift (Saerens, Latinne &
-    Decaestecker, Neural Computation 2002): estimate the new prior from the
-    classifier's own outputs, re-weight the posteriors by the odds ratio between
-    the new prior and the fitted one, and iterate to a fixed point.
-
-    Returns (corrected probabilities, estimated prior).
-    """
-    p = np.clip(np.asarray(p, dtype=np.float64), 1e-6, 1 - 1e-6)
-    pi_c = float(np.clip(calib_prior, 1e-6, 1 - 1e-6))
-    pi = float(p.mean())
-    post = p
-    for _ in range(iters):
-        pi = float(np.clip(pi, 1e-6, 1 - 1e-6))
-        num = (pi / pi_c) * p
-        den = num + ((1.0 - pi) / (1.0 - pi_c)) * (1.0 - p)
-        post = num / np.maximum(den, 1e-12)
-        pi_new = float(post.mean())
-        if abs(pi_new - pi) < tol:
-            pi = pi_new
-            break
-        pi = pi_new
-    return post, pi
-
-
 class Calibrator:
     """Raw fused score -> probability that the entity is genuinely illicit."""
 
     def __init__(self):
         self.iso: IsotonicRegression | None = None
         self.fitted_on = 0
-        # The base rate the isotonic mapping was learned under. Needed to correct
-        # for prior shift when the scored population differs.
+        # The base rate the isotonic mapping was learned under. Recorded for
+        # reporting only - never applied inside transform.
         self.calib_prior = 0.0
-        self.last_estimated_prior = 0.0
 
     def fit(self, raw: np.ndarray, y: np.ndarray) -> "Calibrator":
         self.iso = IsotonicRegression(y_min=0.0, y_max=1.0, out_of_bounds="clip")
@@ -92,18 +56,30 @@ class Calibrator:
         self.calib_prior = float(np.mean(y))
         return self
 
-    def transform(self, raw: np.ndarray, adjust_prior: bool = False) -> np.ndarray:
+    def transform(self, raw: np.ndarray) -> np.ndarray:
+        """Raw fused score -> calibrated probability.
+
+        ONE path. There used to be an `adjust_prior` flag, and because training
+        passed True while the scoring pipeline used the default, the Model panel
+        and the live alert queue reported different probabilities for the same
+        entity (PR-AUC 0.404 vs 0.369 on the same fold). A confidence score
+        cannot be allowed to mean two things.
+
+        Pure by construction: no attribute is written here. The API runs pipeline
+        jobs in threads, so a transform with side effects is a data race.
+        """
         if self.iso is None:
-            return raw
+            return np.asarray(raw, dtype=np.float32)
         p = self.iso.predict(raw)
-        # Blend a small amount of the raw score back in. This breaks ties inside
-        # a saturated isotonic bin without meaningfully shifting the probability,
-        # so two alerts that differ in evidence no longer read as identical.
+        # Blend a little raw score back in so ties inside a saturated isotonic
+        # bin still order by evidence, without meaningfully moving the probability.
         p = 0.97 * p + 0.03 * np.asarray(raw, dtype=float)
-        p = np.clip(p, PROB_FLOOR, PROB_CEIL)
-        if adjust_prior and self.calib_prior > 0:
-            p, self.last_estimated_prior = prior_shift_correct(p, self.calib_prior)
         return np.clip(p, PROB_FLOOR, PROB_CEIL).astype(np.float32)
+
+    @staticmethod
+    def estimate_prior(p: np.ndarray) -> float:
+        """Estimated positive rate of a scored population: the mean probability."""
+        return float(np.mean(np.asarray(p, dtype=float))) if len(p) else 0.0
 
     def save(self, path) -> None:
         import pickle

@@ -234,7 +234,7 @@ def run_pipeline(path: Path, *, truth_dir: Path | None = None,
     # Correct for label shift: the calibration fold's base rate is not this
     # capture's base rate, and reporting uncorrected probabilities would make the
     # reliability diagram - our central honesty claim - simply wrong.
-    confidence = calibrator.transform(raw, adjust_prior=True)
+    confidence = calibrator.transform(raw)
     t.mark("detect")
 
     # ---- ranking ---------------------------------------------------------
