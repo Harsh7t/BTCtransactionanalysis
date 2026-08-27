@@ -1,0 +1,66 @@
+# Detection, fusion and presentation thresholds.
+
+seed: 20260826
+feature_version: 7
+
+embeddings:
+  dim: 64
+  n_walks: 8
+  walk_length: 16
+  backend: auto        # auto | gensim | ppmi_svd
+
+supervised:
+  n_estimators: 300
+  backend: auto        # auto | lightgbm | sklearn_histgb
+
+novelty:
+  contamination: 0.05
+  min_cluster_size: 25
+
+fusion:
+  # Evidence is weighted lowest on purpose: the typology matchers corroborate,
+  # they never decide. If evidence ever dominates, this has become a rules engine.
+  # MEASURED, not chosen by feel. eval/ sweeps these and records the full curve
+  # in metrics.json (fusion_sweep). The trade-off is real and goes both ways:
+  #   supervised only  -> test P@10 1.00, but held-out-typology recall 0.12
+  #   heavy novelty    -> held-out recall 0.33, but test P@10 drops to 0.70
+  # This point keeps 0.90 precision in the top ten while roughly doubling recall
+  # on laundering patterns the classifier has never seen. Evidence stays lowest:
+  # matchers corroborate, they never decide.
+  weights:
+    supervised: 0.85
+    novelty: 0.05
+    evidence: 0.10
+
+alerts:
+  # The analyst's afternoon is a handful of case files, not a spreadsheet.
+  threshold: 0.75
+  max_alerts: 60
+  # How many flagged entities to consider before campaign linking collapses them
+  # into operations. Larger pool = better grouping, slightly more work.
+  campaign_pool: 4000
+  shap_top_k: 8
+  # SHAP is computed only for alerts actually shown - TreeExplainer is exact and
+  # fast, but there is no reason to explain 89,000 entities nobody will open.
+  explain_top_n: 60
+
+attribution:
+  fdr_alpha: 0.01
+  # 1, not 2. Under randomised diffusion most observed announcements of a
+  # transaction are RE-RELAYS; the originator's own announcement is frequently
+  # seen exactly once. Requiring two sightings therefore discards precisely the
+  # origin evidence we are trying to find. A single sighting is weak - and the
+  # diffusion weighting already says so, scoring it at ~0.22 of full weight - so
+  # let it into the test and let the confidence model discount it honestly.
+  min_observations: 1
+  top_k_candidates: 5
+
+graph:
+  default_hops: 2
+  node_cap: 1500
+
+splits:
+  train: 0.6
+  calib: 0.2
+  test: 0.2
+  holdout_typologies: [dormancy_burst, cross_asn_structuring]

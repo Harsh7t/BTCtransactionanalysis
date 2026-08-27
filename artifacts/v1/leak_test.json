@@ -1,0 +1,70 @@
+{
+  "passed": true,
+  "verdict": "PASS - fields with no constructed path to the label score at the base rate; the generator encodes no shortcut the detector could be exploiting.",
+  "features_tested_strict": [
+    "mean_feerate_sat_vb",
+    "ephemeral_linux_frac",
+    "ephemeral_windows_frac",
+    "round_number_frac"
+  ],
+  "features_missing": [],
+  "per_field": {
+    "mean_feerate_sat_vb": {
+      "pr_auc": 0.0982,
+      "lift": 1.165,
+      "tier": "strict"
+    },
+    "ephemeral_linux_frac": {
+      "pr_auc": 0.0979,
+      "lift": 1.162,
+      "tier": "strict"
+    },
+    "ephemeral_windows_frac": {
+      "pr_auc": 0.0997,
+      "lift": 1.183,
+      "tier": "strict"
+    },
+    "round_number_frac": {
+      "pr_auc": 0.0843,
+      "lift": 1.0,
+      "tier": "strict"
+    },
+    "mean_fee_sat": {
+      "pr_auc": 0.1059,
+      "lift": 1.257,
+      "tier": "informative"
+    },
+    "mean_value_out": {
+      "pr_auc": 0.1188,
+      "lift": 1.41,
+      "tier": "informative"
+    },
+    "std_value_out": {
+      "pr_auc": 0.0913,
+      "lift": 1.083,
+      "tier": "informative"
+    },
+    "total_out": {
+      "pr_auc": 0.1116,
+      "lift": 1.324,
+      "tier": "informative"
+    },
+    "total_in": {
+      "pr_auc": 0.1106,
+      "lift": 1.312,
+      "tier": "informative"
+    }
+  },
+  "informative_tier_pr_auc": 0.1953,
+  "informative_tier_lift": 2.317,
+  "leak_pr_auc": 0.1041,
+  "baseline_pr_auc": 0.0843,
+  "lift_over_baseline": 1.235,
+  "threshold_ratio": 1.3,
+  "control_full_feature_pr_auc": 0.8554,
+  "control_lift": 10.148,
+  "n_train": 47138,
+  "n_test": 20203,
+  "interpretation": "The strict set should sit near 1.0x baseline while the full feature set sits far above it. The GAP between them is the evidence that detection comes from topology, timing and network structure rather than from an artefact of how the data was written.",
+  "known_residual": "The strict tier does not sit at exactly 1.0x, and we know why rather than hoping. Two indirect paths remain, both weak and both real-world rather than artefactual: (1) fee RATE follows a daily congestion cycle, and entities that operate at unusual hours therefore meet different fee conditions - a correlation through timing, not through amount; (2) any per-entity mean over N observations partially encodes N, and activity volume does correlate with the label. Both are properties a real capture would also have. They are reported rather than tuned away, and the ~9x separation from the control is what the claim actually rests on."
+}

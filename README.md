@@ -1,0 +1,134 @@
+# BTC-FUSION
+
+**AI-powered monitoring and analysis of Bitcoin transaction traffic**
+SIH 2026 · PS 26146 · National Technical Research Organisation · Blockchain & Cybersecurity
+
+Ingests bulk Bitcoin transaction/network metadata, **correlates network-layer
+(IP/port/timing) observations with blockchain-layer (wallet/TXID/amount) data**, and
+applies ML to produce ranked, explainable investigative leads. Runs entirely offline.
+
+---
+
+## The thesis in one paragraph
+
+Two evidence sources could catch a launderer and each is useless alone. The blockchain
+records every transaction but contains no people — addresses are random strings. Network
+traffic records which IP first announced a transaction but contains no meaning — packets
+don't carry semantics. **This system is the machine that joins them.** Every commercial
+chain-analysis product treats `src_ip` as a column; none run inference in the other
+direction, because a private company cannot lawfully tap an ISP. That capability gap is
+why this problem statement exists, and it is the gap this builds into.
+
+---
+
+## Quick start
+
+```bash
+make setup        # once, with network: venv + deps + UI build
+make reproduce    # generate → leak-test → train → score, all from a fixed seed
+make serve        # http://127.0.0.1:8000
+```
+
+Then unplug the network cable. Nothing here makes an outbound request — `make
+offline-check` fails the build if any application file references a remote host.
+
+---
+
+## What it does, stage by stage
+
+```
+ CSV / JSON / XML  (bulk, 500k+ rows)
+   ① INGEST      schema map → validate → Polars → bad rows to quarantine, never dropped
+   ② ENRICH      src/dst IP → country, ASN, ASN type, Tor/VPN, from a BUNDLED database
+   ③ RESOLVE     Union-Find over co-spends + script-type-refined change heuristic
+   ④ GRAPH       igraph tripartite: IP ↔ entity ↔ transaction
+   ⑤ FEATURES    ~60 engineered across 6 families + 64 Node2Vec dimensions
+   ⑥ DETECT      GBDT + IsolationForest + HDBSCAN → fuse → isotonic calibration
+   ⑦ ATTRIBUTE   entity ⇄ IP: co-occurrence significance, diffusion weighting, confidence
+   ⑧ EXPLAIN     exact SHAP → narrative → evidence chain with real TXIDs
+   ⑨ ALERTS      ranked, campaign-linked, persisted to DuckDB
+```
+
+Measured on this machine: **564k rows end to end in ~16 s (≈36,000 rows/s)**, 8-core
+CPU, no GPU. Per-stage timings are displayed in the UI and recorded per run.
+
+---
+
+## The five things that make this different
+
+**1 · Bidirectional network⇄chain attribution.** The PS's load-bearing verb is
+*correlates*. Given an on-chain entity, which network identity is behind it, and how
+sure are we? Hypergeometric co-occurrence significance against a null model, FDR-
+controlled across all pairs, propagation-tree root reconstruction from `src_ip→dst_ip`
+edges, infrastructure classification, and behavioural timezone inference.
+
+**2 · Diffusion-aware honesty.** Bitcoin Core randomises per-peer relay delay
+specifically to defeat first-relay deanonymisation (Koshy FC'14, Biryukov CCS'14). We
+model that defence: single observations are weak evidence by construction, propagation-
+tree roots outrank "seen first", and where every candidate address is shared
+infrastructure **attribution is suppressed rather than reported at a misleading
+confidence**. An attribution engine that always produces an answer is not one.
+
+**3 · We test our own data.** `make leak-test` trains a classifier on fields that have
+*no constructed path* to the label — fee rate, OS port fingerprint, round-number
+fraction — and gates the build on them scoring at the base rate. It has already caught
+two real generator defects: crime proceeds drawn from a different amount distribution
+than licit payments, and mule wallets drawing their OS from a different distribution
+than everyone else.
+
+**4 · The case file, not the alert.** Plain-English assessment derived from exact SHAP,
+evidence chain with real TXIDs, k-hop graph, activity timeline, attribution with a
+confidence interval — and **an explicit statement of what evidence would raise or lower
+that confidence**, computed by re-running the confidence model with one input changed.
+
+**5 · Every number is checkable.** Two typologies are held out of training entirely and
+scored separately. The fusion weights sit on a published trade-off curve. `make
+reproduce` regenerates every figure from a fixed seed, and each run records the input's
+SHA-256, the seed, the feature version, the model backend and the git SHA.
+
+---
+
+## Layout
+
+```
+btcfusion/
+  generator/    ⚠ hand-written. 8 archetypes, 6 typologies (2 held out),
+                  diffusion, coverage, churn, shared infra, leak_test.py
+  ingest/       CSV/JSON/XML parsers, schema mapping, validation, GeoIP enrichment
+  graph/        entity resolution (Union-Find), tripartite graph, k-hop extraction
+  features/     6 feature families + Node2Vec embeddings
+  detect/       supervised, novelty, typology matchers (EVIDENCE ONLY), fusion, calibration
+  attribute/    ⚠ hand-written. The differentiator. significance, diffusion,
+                  infra, behaviour, confidence + counterfactuals
+  explain/      SHAP → narrative, self-contained case-file export
+  eval/         labels, leak-proof splits, metrics
+  api/          FastAPI — same process as the models
+ui/             React + Vite + TS + Tailwind. Fonts self-hosted (offline).
+config/         schema_map · generator · detect — all parameters, documented
+artifacts/v1/   pinned models + manifest.json + metrics.json + leak_test.json
+```
+
+The two ⚠ directories fail *silently* when wrong. They are hand-written and each has an
+owner who can defend it.
+
+---
+
+## Deliberately not built
+
+Auth (air-gapped single-analyst workstation — the OS is the access boundary), Kafka or
+streaming (the PS says *bulk*), any live API or node (contradicts offline), Neo4j or
+Postgres (another service to install for no analytical gain over DuckDB + igraph), any
+LLM (fragile offline, unfalsifiable output, wrong tool for a forensics claim).
+
+Each was considered and rejected on a stated reason, not skipped.
+
+---
+
+## Known limits
+
+Read `artifacts/v1/leak_test.json` → `known_residual` and the Model panel before quoting
+any figure. In short: the synthetic generator's class balance is higher than a real base
+rate; entity resolution is high-precision but fragments receive-only addresses
+(homogeneity ≈ 0.99, completeness ≈ 0.68); held-out-typology recall is materially below
+test recall, and that gap is the honest bound on generalisation. All three are measured
+and displayed rather than mentioned in a footnote.

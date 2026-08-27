@@ -1,0 +1,44 @@
+# Input header -> canonical schema (roadmap §16.2-D, R5).
+#
+# A judge may hand us a file whose columns are named nothing like ours. Every
+# canonical field lists the aliases we accept, matched case-insensitively and
+# ignoring separators, so `Src IP`, `source_ip` and `SRC-IP` all land correctly.
+# Unmapped required columns produce a listed error, never a stack trace.
+
+array_encoding: auto       # auto | delimited | json | long
+array_delimiter: "|"
+
+aliases:
+  timestamp:         [timestamp, time, ts, datetime, observed_at, first_seen, block_time]
+  src_ip:            [src_ip, source_ip, srcaddr, src_addr, sender_ip, ip_src, origin_ip]
+  dst_ip:            [dst_ip, dest_ip, destination_ip, dstaddr, dst_addr, ip_dst, peer_ip]
+  src_port:          [src_port, source_port, sport, srcport]
+  dst_port:          [dst_port, dest_port, destination_port, dport, dstport]
+  txid:              [txid, tx_id, txhash, tx_hash, transaction_id, hash]
+  input_addresses:   [input_addresses, inputs, in_addr, input_addr, sender_addresses, vin_addresses]
+  output_addresses:  [output_addresses, outputs, out_addr, output_addr, receiver_addresses, vout_addresses]
+  input_amounts:     [input_amounts, in_amounts, input_values, vin_values]
+  output_amounts:    [output_amounts, out_amounts, output_values, vout_values]
+  fee:               [fee, tx_fee, miner_fee, fee_sat, fee_satoshi]
+  script_type:       [script_type, scripttype, output_type, addr_type, script]
+  geo_country:       [geo_country, country, country_code, cc, geoip_country]
+  asn:               [asn, as_number, autonomous_system, asnum]
+
+# Fields the pipeline cannot run without. Everything else degrades gracefully:
+# missing IP columns drop the system into chain-only mode with attribution
+# disabled, rather than failing the run (roadmap §4.4).
+required: [timestamp, txid, input_addresses, output_addresses, output_amounts]
+
+# Long-format inputs (one row per address rather than per transaction) are
+# reassembled by grouping on these.
+long_format:
+  group_key: txid
+  address_col: address
+  direction_col: direction    # values: input | output
+  amount_col: amount
+
+validation:
+  max_fee_sat: 100000000        # 1 BTC in fees is a parse error, not a transaction
+  max_amount_sat: 2100000000000000
+  min_timestamp: "2009-01-03T00:00:00Z"   # the genesis block
+  max_future_skew_days: 2

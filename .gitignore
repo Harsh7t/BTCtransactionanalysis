@@ -1,0 +1,15 @@
+.venv/
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store
+data/samples/*.csv
+data/samples/*.jsonl
+data/samples/*.xml
+data/samples/*_truth/
+data/uploads/
+data/exports/
+data/case.duckdb
+data/train.duckdb
+ui/dist/
+wheels/

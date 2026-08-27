@@ -1,0 +1,152 @@
+/* BTC-FUSION — application design language.
+ *
+ * This is deliberately NOT a new visual identity. The project already has one:
+ * diagrams.html, the six plates that ship in the submission deck. IBM Plex,
+ * hairline rules, square corners, mono small-caps labels, and a palette where
+ * every accent names a DATA LAYER rather than a mood. Plates 04-06 are literal
+ * wireframes of these screens — dark chrome over a dense light body — so the
+ * app continues that language instead of competing with it. Deck and product
+ * read as one designed system, which is the whole point.
+ *
+ * THE LAYER PALETTE IS SEMANTIC, NOT DECORATIVE:
+ *   chain   blockchain-layer facts      network  network-layer facts
+ *   fusion  model output & confidence   confirm  analyst actions
+ * A colour here is a claim about provenance. Never pick one because it looks good.
+ *
+ * HOUSE RULES (what keeps this looking like instrument software):
+ *   - Radius 0-2px. Nothing is a floating rounded card.
+ *   - Depth comes from hairline borders and background steps, never box-shadow.
+ *   - No gradients except where one encodes a magnitude.
+ *   - Every identifier (txid, IP, ASN, entity) is monospace. Every figure is
+ *     tabular-nums and right-aligned so columns compare vertically.
+ *   - Density is the feature. Empty space is unused evidence.
+ */
+@import '@fontsource/ibm-plex-sans/300.css';
+@import '@fontsource/ibm-plex-sans/400.css';
+@import '@fontsource/ibm-plex-sans/500.css';
+@import '@fontsource/ibm-plex-sans/600.css';
+@import '@fontsource/ibm-plex-sans-condensed/600.css';
+@import '@fontsource/ibm-plex-sans-condensed/700.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+@import '@fontsource/ibm-plex-mono/600.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Surfaces — taken from the plates, which are printed on paper. */
+  --paper:      #E4E8EC;
+  --surface:    #FFFFFF;
+  --surface-2:  #F3F5F7;
+  --surface-3:  #EDF0F3;
+  --ink:        #0E1C27;
+  --ink-soft:   #4A5B69;
+  --ink-dim:    #6F808D;
+  --rule:       #C3CCD4;
+  --rule-soft:  #DBE1E6;
+
+  /* Layer semantics. */
+  --chain:      #2D6A9F;
+  --network:    #7B4B94;
+  --fusion:     #B8791C;
+  --confirm:    #2E7D5B;
+  --data:       #5C6B78;
+  --danger:     #A2453B;
+
+  --chain-wash:   #EAF1F7;
+  --network-wash: #F4EEF7;
+  --fusion-wash:  #FBF6ED;
+  
+  --confirm-wash: #F0F7F3;
+  --danger-wash:  #FBF0EE;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums;
+}
+
+.mono { font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+/* Condensed uppercase headings — the plate masthead voice. */
+.display {
+  font-family: 'IBM Plex Sans Condensed', sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.012em;
+  text-transform: uppercase;
+}
+
+/* The section label used throughout the plates. */
+.eyebrow {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+/* Numeric cells align on the decimal so magnitudes compare at a glance. */
+.num { font-variant-numeric: tabular-nums; text-align: right; }
+
+/* Focus rings stay. Removing them is the most common a11y regression there is. */
+:focus-visible {
+  outline: 2px solid var(--chain);
+  outline-offset: 1px;
+}
+
+::selection { background: #B8791C33; }
+
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: var(--surface-2); }
+::-webkit-scrollbar-thumb { background: var(--rule); border: 3px solid var(--surface-2); }
+::-webkit-scrollbar-thumb:hover { background: var(--ink-dim); }
+
+/* Threshold slider — a real control, styled to match the instrument. */
+input[type='range'] {
+  -webkit-appearance: none; appearance: none;
+  height: 2px; background: var(--rule); cursor: pointer;
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 13px; height: 13px; background: var(--fusion);
+  border: 2px solid var(--surface); cursor: pointer;
+}
+input[type='range']::-moz-range-thumb {
+  width: 13px; height: 13px; background: var(--fusion);
+  border: 2px solid var(--surface); cursor: pointer; border-radius: 0;
+}
+
+@keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
+.blink { animation: blink 1.2s steps(2, start) infinite; }
+
+/* Indeterminate progress for the ingest counter. */
+@keyframes crawl { from { transform: translateX(-100%) } to { transform: translateX(400%) } }
+.crawl::after {
+  content: ''; position: absolute; inset: 0; width: 25%;
+  background: var(--fusion); opacity: .55;
+  animation: crawl 1.1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+@media print {
+  body { background: #fff; }
+  .no-print { display: none !important; }
+}

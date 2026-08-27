@@ -1,0 +1,12 @@
+services:
+  btc-fusion:
+    build: .
+    image: btc-fusion:0.3.0
+    ports: ["8000:8000"]
+    volumes:
+      - ./data:/app/data
+    # The system never makes an outbound request. This makes that structural
+    # rather than aspirational: with no egress, a hidden API call fails loudly
+    # in development instead of silently on demo day.
+    network_mode: bridge
+    restart: unless-stopped

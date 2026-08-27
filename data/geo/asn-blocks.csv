@@ -1,0 +1,38 @@
+cidr,asn,asn_org,asn_type,country,tz_offset_min
+198.18.0.0/20,64512,Bharat Broadband,residential,IN,330
+198.18.16.0/20,64519,Mumbai Metro Net,residential,IN,330
+198.18.32.0/20,64526,Delhi FiberLink,residential,IN,330
+198.18.48.0/20,64533,Chennai Access,residential,IN,330
+198.18.64.0/20,64540,Cascade Cable,residential,US,-300
+198.18.80.0/20,64547,Midwest Broadband,residential,US,-300
+198.18.96.0/20,64554,Atlantic Access,residential,US,-300
+198.18.112.0/20,64561,Rhein Telekabel,residential,DE,60
+198.18.128.0/20,64568,Bavaria Netz,residential,DE,60
+198.18.144.0/20,64575,Volga Telecom,residential,RU,180
+198.18.160.0/20,64582,Ural Netcom,residential,RU,180
+198.18.176.0/20,64589,Dnipro Online,residential,UA,120
+198.18.192.0/20,64596,Kyiv Link,residential,UA,120
+198.18.208.0/20,64603,Sao Paulo Banda,residential,BR,-180
+198.18.224.0/20,64610,Lagos Broadband,residential,NG,60
+198.18.240.0/20,64617,Bharat Mobile Data,mobile,IN,330
+198.19.0.0/20,64624,Indus Cellular,mobile,IN,330
+198.19.16.0/20,64631,Northstar Wireless,mobile,US,-300
+198.19.32.0/20,64638,Ridgeline Cloud,hosting,US,-300
+198.19.48.0/20,64645,Bluewater Hosting,hosting,US,-300
+198.19.64.0/20,64652,Sierra Datacenter,hosting,US,-300
+198.19.80.0/20,64659,Amstel Servers,hosting,NL,60
+198.19.96.0/20,64666,Randstad Hosting,hosting,NL,60
+198.19.112.0/20,64673,Straits Compute,hosting,SG,480
+198.19.128.0/20,64680,Hessen Rechenzentrum,hosting,DE,60
+198.19.144.0/20,64687,Victoria Peak Systems,hosting,HK,480
+198.19.160.0/20,64694,Meridian Edge,cdn,US,-300
+198.19.176.0/20,64701,Northlight CDN,cdn,US,-300
+198.19.192.0/20,64708,Lowlands Edge,cdn,NL,60
+198.19.208.0/20,64715,Isthmus Privacy Net,vpn,PA,-300
+198.19.224.0/20,64722,Coral Anonymity,vpn,SC,240
+198.19.240.0/20,64729,Hekla Secure Tunnel,vpn,IS,0
+100.64.0.0/20,64736,Carpathian VPN,vpn,RO,120
+100.64.16.0/20,64743,Freihafen Exit Relay,tor,DE,60
+100.64.32.0/20,64750,Schwarzwald Exit,tor,DE,60
+100.64.48.0/20,64757,Occitanie Exit Node,tor,FR,60
+100.64.64.0/20,64764,Beacon Hill Exit,tor,US,-300

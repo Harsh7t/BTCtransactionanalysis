@@ -1,0 +1,83 @@
+# BTC-FUSION synthetic generator parameters.
+#
+# DISCIPLINE (roadmap §6.3): every distribution names the real-world behaviour it
+# models. Where a parameter is an engineering assumption rather than a measured
+# value it says so. Do not put a number on a slide without checking docs/generator_parameters.md.
+#
+# ponytail: parameters are illustrative defaults chosen to make the two-layer
+# fusion thesis exercisable. Replace with measured values from the cited P2P
+# studies before publishing any accuracy claim.
+
+seed: 20260826
+
+population:
+  n_entities: 4200          # resolved actors; addresses are ~8-40x this
+  # Archetype mix. Real networks are overwhelmingly retail by count.
+  mix:
+    exchange: 0.012
+    merchant: 0.10
+    retail: 0.72
+    miner: 0.018
+    mixer: 0.012
+    darknet: 0.020
+    ransomware: 0.010
+    extortion: 0.008        # §16.4-I: distinct on-chain shape, not a ransomware variant
+
+time:
+  # Simulated capture window. Bulk captures are typically days-to-weeks.
+  start: "2026-06-01T00:00:00Z"
+  days: 45
+
+fees:
+  # Fee is modelled as f(vsize, network feerate at time) ONLY.
+  # It must NOT correlate with actor legitimacy or the leak test fails (§6.3).
+  base_sat_per_vb: 12.0
+  diurnal_amplitude: 0.35   # mempool congestion follows a daily cycle
+  noise_sigma: 0.30         # lognormal multiplicative noise
+
+network:
+  # --- Diffusion (roadmap §5.1 step 2, refs 4-6) ---
+  # Bitcoin Core applies a randomised per-peer delay (Poisson trickle) to frustrate
+  # the first-relay attacks of Koshy et al. FC2014 / Biryukov et al. CCS2014.
+  # We model that defence explicitly so attribution degrades honestly.
+  peer_delay_mean_s: 2.0    # exponential mean of per-peer announcement delay
+  fanout_peers: 8           # peers an originating node announces to
+  relay_depth: 2            # further hops of re-announcement we simulate
+  # --- Observation coverage ---
+  # A real vantage point sees a FRACTION of announcements. This is the single
+  # most important honesty knob; eval/ sweeps it (§6.7 sensitivity curve).
+  observation_coverage: 0.25
+  # --- Infrastructure ---
+  churn_prob_residential: 0.06   # per-day chance a residential IP rotates
+  shared_pool_size: 60           # VPN/Tor exit IPs shared across many entities
+  multihome_max: 4               # distinct IPs one entity announces from
+
+typologies:
+  # 6 laundering patterns. Two are HELD OUT of training so we can report
+  # generalisation to unseen patterns (§6.3) - a number no other team will have.
+  train: [peel_chain, fan_out_in, rapid_layering, mixer_passthrough]
+  holdout: [dormancy_burst, cross_asn_structuring]
+  n_campaigns: 55            # laundering campaigns injected into the window
+  # Legitimate multi-hop wallet-to-wallet chains. These exist to give the LICIT
+  # class the same structural shape as laundering mules - short-lived wallets
+  # forwarding one concentrated chunk. Without them that shape alone predicts
+  # illicit activity and the leak test fails. Keep this well above n_campaigns.
+  n_licit_passthrough: 320
+  peel_chain:
+    hops: [8, 14]
+    peel_fraction: [0.02, 0.09]
+  fan_out_in:
+    split: [8, 18]
+    reconverge_hops: [2, 4]
+  rapid_layering:
+    hops: [5, 10]
+    dwell_minutes: [2, 25]
+  mixer_passthrough:
+    participants: [6, 12]
+  dormancy_burst:
+    dormant_days: [20, 38]
+    burst_txs: [6, 14]
+  cross_asn_structuring:
+    tranches: [8, 20]
+    threshold_sats: 100000000   # keep each tranche just under 1 BTC
+    asn_spread: [3, 7]
