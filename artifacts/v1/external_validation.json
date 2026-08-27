@@ -1,0 +1,11 @@
+{
+  "available": false,
+  "pr_auc": null,
+  "note": "Elliptic dataset not present. Download elliptic_txs_features.csv and elliptic_txs_classes.csv from the Elliptic Data Set on Kaggle into /Users/harshitsengar/Desktop/sih26/btc-fusion/data/external/elliptic/ and re-run `make validate-external`. Not committed for licence and size reasons.",
+  "published_reference": {
+    "source": "Weber et al. 2019, Anti-Money Laundering in Bitcoin",
+    "model": "Random Forest, all features",
+    "illicit_f1": 0.79,
+    "caveat": "Confirm from the paper before citing. Splits and feature subsets differ."
+  }
+}

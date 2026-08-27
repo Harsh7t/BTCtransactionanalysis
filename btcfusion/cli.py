@@ -106,6 +106,17 @@ def cmd_sensitivity(args) -> int:
     return 0
 
 
+def cmd_validate_external(args) -> int:
+    from .eval.external import validate_elliptic
+    res = validate_elliptic(Path(args.root), seed=args.seed or 20260826)
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(res, indent=2))
+    print(json.dumps(res, indent=2))
+    # An absent dataset is a documented state, not a build failure.
+    return 0
+
+
 def cmd_serve(args) -> int:
     import uvicorn
     uvicorn.run("btcfusion.api.main:app", host=args.host, port=args.port, reload=args.reload)
@@ -151,6 +162,14 @@ def main(argv=None) -> int:
     sv.add_argument("--out", default=str(ROOT / "artifacts" / "v1" / "sensitivity.json"))
     sv.add_argument("--seed", type=int)
     sv.set_defaults(func=cmd_sensitivity)
+
+    ve = sub.add_parser("validate-external",
+                        help="validate the chain-side detector on real labelled data")
+    ve.add_argument("--root", default=str(DATA / "external" / "elliptic"))
+    ve.add_argument("--out",
+                    default=str(ROOT / "artifacts" / "v1" / "external_validation.json"))
+    ve.add_argument("--seed", type=int)
+    ve.set_defaults(func=cmd_validate_external)
 
     s = sub.add_parser("serve", help="run the API + UI")
     s.add_argument("--host", default="127.0.0.1")
