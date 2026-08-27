@@ -21,6 +21,18 @@ why this problem statement exists, and it is the gap this builds into.
 
 ---
 
+## GeoIP
+
+Enrichment uses **DB-IP Lite (ASN)**, CC BY 4.0 — an open-source, downloadable
+database, as the PS requires. It is fetched once at build time by `make geoip` and
+**committed**, so the running system never touches the network. DB-IP rather than
+MaxMind GeoLite2 because its licence permits redistribution.
+
+Synthetic captures place hosts in reserved address space (RFC 2544 / RFC 6598) that no
+real GeoIP database has entries for, so `data/geo/asn-blocks.csv` supplies ASN type and
+timezone for those ranges. Both sources are consulted and the receipt records which
+answered.
+
 ## Quick start
 
 ```bash

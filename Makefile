@@ -65,3 +65,6 @@ offline-check:    ## fail if any source file reaches the network at runtime
 
 clean:
 	rm -rf data/case.duckdb data/uploads data/exports ui/dist
+
+geoip:            ## fetch DB-IP Lite (CC-BY). Build-time only; result is committed.
+	./scripts/fetch_geoip.sh

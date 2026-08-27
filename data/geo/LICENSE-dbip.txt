@@ -1,0 +1,4 @@
+DB-IP Lite ASN database
+Licensed CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+Source: https://db-ip.com/db/download/ip-to-asn-lite
+Redistributed with attribution, as the licence permits.
