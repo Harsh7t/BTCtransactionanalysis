@@ -82,7 +82,7 @@ class Prepared:
 
 
 def prepare(path: Path, *, detect_cfg: dict | None = None,
-            progress=None) -> Prepared:
+            progress=None, geo_table: Path | None = None) -> Prepared:
     """Stages 1-5. Shared by both training and scoring so the two can never
     diverge in how a feature is computed."""
     dcfg = detect_cfg or load_cfg("detect.yaml")
@@ -98,7 +98,7 @@ def prepare(path: Path, *, detect_cfg: dict | None = None,
     t.mark("ingest")
 
     step("enrich")
-    geo = GeoIP(table_path=DATA / "geo" / "asn-blocks.csv",
+    geo = GeoIP(table_path=geo_table or (DATA / "geo" / "asn-blocks.csv"),
                 mmdb_path=next(iter((DATA / "geo").glob("*.mmdb")), None))
     df, enrich_report = enrich(df, geo)
     t.mark("enrich")
@@ -297,7 +297,25 @@ def run_pipeline(path: Path, *, truth_dir: Path | None = None,
     # Campaign collapsing walks the pool in discovery order, so the surviving
     # leads come out unsorted - the queue would show a 0.78 case above a 0.93 one.
     # Re-rank the leads themselves on the same key used to order the pool.
-    keep.sort(key=lambda i: (-round(float(confidence[i]), 2),
+    # ANALYST FEEDBACK. A dismissed entity should not reappear at the top of the
+    # queue on the next run, and a confirmed one should not be buried. This is a
+    # presentation-layer re-rank, deliberately NOT a model update: retraining on
+    # analyst clicks without a controlled evaluation is how a triage tool quietly
+    # learns one person's habits and calls it learning.
+    feedback: dict[str, str] = {}
+    try:
+        _prior = Store(db or DATA / "case.duckdb")
+        for fr in _prior.q("SELECT entity, verdict FROM feedback "
+                           "WHERE verdict IS NOT NULL AND verdict <> ''"):
+            feedback[fr["entity"]] = fr["verdict"]
+        _prior.close()
+    except Exception:
+        feedback = {}
+    FEEDBACK_ADJUST = {"dismissed": -0.25, "confirmed": 0.10}
+    adjust = np.array([FEEDBACK_ADJUST.get(feedback.get(prep.nodes[i], ""), 0.0)
+                       for i in range(n)], dtype=np.float32)
+
+    keep.sort(key=lambda i: (-(round(float(confidence[i]), 2) + float(adjust[i])),
                              -float(value_out[i]), -float(raw[i])))
     top_entities = [prep.nodes[i] for i in keep]
 
@@ -389,6 +407,7 @@ def run_pipeline(path: Path, *, truth_dir: Path | None = None,
             "n_linked_entities": len(linked.get(eid, [])),
             "linked_entities": json.dumps(linked.get(eid, [])[:60]),
             "verdict": "", "verdict_reason": "",
+            "feedback_adjust": float(adjust[i]),
         })
     store.insert_frame("alerts", pl.DataFrame(alert_rows), run_id)
 

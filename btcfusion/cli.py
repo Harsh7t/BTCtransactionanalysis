@@ -94,6 +94,18 @@ def cmd_leak_test(args) -> int:
     return 0
 
 
+def cmd_sensitivity(args) -> int:
+    from .eval.sensitivity import sweep_coverage, write_sensitivity
+    rows = sweep_coverage(seed=args.seed)
+    p = write_sensitivity(Path(args.out), rows)
+    for r in rows:
+        print(f"  coverage {r['coverage']:.2f}  top-1 {r['top1_accuracy']:.3f}  "
+              f"top-3 {r['top3_accuracy']:.3f}  MRR {r['mrr']:.3f}  "
+              f"attempted {r['attempt_rate']:.0%}  baseline {r['random_choice_baseline']:.3f}")
+    print(f"wrote {p}")
+    return 0
+
+
 def cmd_serve(args) -> int:
     import uvicorn
     uvicorn.run("btcfusion.api.main:app", host=args.host, port=args.port, reload=args.reload)
@@ -134,6 +146,11 @@ def main(argv=None) -> int:
     lt.add_argument("truth")
     lt.add_argument("--out", help="write the report as clean JSON to this path")
     lt.set_defaults(func=cmd_leak_test)
+
+    sv = sub.add_parser("sensitivity", help="attribution accuracy vs observation coverage")
+    sv.add_argument("--out", default=str(ROOT / "artifacts" / "v1" / "sensitivity.json"))
+    sv.add_argument("--seed", type=int)
+    sv.set_defaults(func=cmd_sensitivity)
 
     s = sub.add_parser("serve", help="run the API + UI")
     s.add_argument("--host", default="127.0.0.1")

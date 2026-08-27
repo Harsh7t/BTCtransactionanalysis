@@ -12,6 +12,10 @@ accuracy. Accuracy never appears in this file.
   * EXPECTED CALIBRATION ERROR decides whether "0.87" is a claim or a decoration.
   * HELD-OUT-TYPOLOGY RECALL measures generalisation to laundering patterns never
     trained on. It will be low. Reporting it anyway is the point.
+
+Accuracy and F1 ARE computed, in classification_report_at - but accuracy is only
+ever emitted alongside the all-negative baseline that makes its uselessness here
+visible. It is never used to judge the system.
 """
 from __future__ import annotations
 
@@ -108,36 +112,43 @@ def evaluate(y: np.ndarray, s: np.ndarray, threshold: float = 0.5) -> dict:
     }
 
 
-def attribution_metrics(pred: dict, truth_ips: dict[str, set[str]]) -> dict:
-    """Top-1 / top-3 accuracy and MRR for entity -> IP attribution.
+def classification_report_at(y: np.ndarray, s: np.ndarray, threshold: float) -> dict:
+    """Confusion matrix and the threshold metrics people ask for by name.
 
-    Measured only over entities we actually attempted, and the attempt rate is
-    reported alongside: a system that answers rarely but correctly and one that
-    answers always and often wrongly must not produce the same number.
+    ACCURACY IS REPORTED BESIDE ITS OWN BASELINE, always. At a 2% positive rate
+    "predict everything licit" scores 98%, and quoting accuracy without that
+    comparison is the most misleading number this project could publish. MCC is
+    included because it is the one single figure that does not collapse under
+    class imbalance.
     """
-    attempted = ranks = 0
-    top1 = top3 = 0
-    rr = 0.0
-    for eid, attribution in pred.items():
-        truth = truth_ips.get(eid)
-        if not truth or not attribution.candidates:
-            continue
-        attempted += 1
-        ips = [c["ip"] for c in attribution.candidates]
-        hit = next((i for i, ip in enumerate(ips) if ip in truth), None)
-        if hit is None:
-            continue
-        ranks += 1
-        rr += 1.0 / (hit + 1)
-        if hit == 0:
-            top1 += 1
-        if hit < 3:
-            top3 += 1
+    from sklearn.metrics import (balanced_accuracy_score, confusion_matrix,
+                                 matthews_corrcoef, precision_recall_fscore_support)
+    y = np.asarray(y).astype(int)
+    s = np.asarray(s, dtype=float)
+    yp = (s >= threshold).astype(int)
+    tn, fp, fn, tp = confusion_matrix(y, yp, labels=[0, 1]).ravel()
+    p, r, f1, _ = precision_recall_fscore_support(y, yp, average="binary", zero_division=0)
+
+    best_f1, best_t = 0.0, float(threshold)
+    for t in np.linspace(0.01, 0.99, 99):
+        _, _, f, _ = precision_recall_fscore_support(
+            y, (s >= t).astype(int), average="binary", zero_division=0)
+        if f > best_f1:
+            best_f1, best_t = float(f), float(t)
+
     return {
-        "n_attempted": attempted,
-        "n_evaluable": len(truth_ips),
-        "attempt_rate": round(attempted / max(1, len(truth_ips)), 4),
-        "top1_accuracy": round(top1 / max(1, attempted), 4),
-        "top3_accuracy": round(top3 / max(1, attempted), 4),
-        "mrr": round(rr / max(1, attempted), 4),
+        "threshold": round(float(threshold), 4),
+        "tp": int(tp), "fp": int(fp), "fn": int(fn), "tn": int(tn),
+        "accuracy": round(float((tp + tn) / max(len(y), 1)), 4),
+        "accuracy_all_negative_baseline": round(float(1 - y.mean()) if len(y) else 0.0, 4),
+        "precision": round(float(p), 4),
+        "recall": round(float(r), 4),
+        "f1": round(float(f1), 4),
+        "mcc": round(float(matthews_corrcoef(y, yp)) if len(set(yp.tolist())) > 1 else 0.0, 4),
+        "balanced_accuracy": round(float(balanced_accuracy_score(y, yp)), 4),
+        "best_f1": round(best_f1, 4),
+        "best_f1_threshold": round(best_t, 4),
+        "note": ("Accuracy is shown beside the all-negative baseline on purpose: at this "
+                 "positive rate they are nearly identical, which is exactly why accuracy "
+                 "is not used to judge this system. MCC and PR-AUC are."),
     }

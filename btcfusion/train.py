@@ -100,6 +100,8 @@ def train(capture: Path, truth_dir: Path, artifacts: Path,
         r_raw = raw_scores(idx)
         r_cal = cal.transform(r_raw)
         results[name] = M.evaluate(y[idx], r_cal, threshold)
+        results[name]["classification"] = M.classification_report_at(
+            y[idx], r_cal, threshold)
         results[name]["ece_uncalibrated"] = round(
             M.expected_calibration_error(y[idx], r_raw), 4)
         results[name]["calibration_fold_prior"] = round(cal.calib_prior, 4)
@@ -144,6 +146,69 @@ def train(capture: Path, truth_dir: Path, artifacts: Path,
     # configuration is a measured choice on a published curve, not a preference.
     fusion_sweep = _fusion_sweep(sup, nov, ev, X, y, ca, te, ho, cfg, threshold)
 
+    # ---- failure gallery: the cases we get wrong --------------------------
+    from .eval.failures import failure_gallery
+    _test_entities = [prep.nodes[i] for i in te]
+    gallery = failure_gallery(
+        _test_entities, y[te], te_cal,
+        fm.filter(pl.col("entity").is_in(_test_entities)), labels, threshold)
+
+    # ---- attribution: measure the differentiator --------------------------
+    # Scored on the TEST fold only, so this figure is comparable with every other
+    # test-fold number and cannot be inflated by entities the model trained on.
+    from .attribute.engine import attribute
+    from .eval.attribution_eval import evaluate_attribution
+
+    test_entities = [prep.nodes[i] for i in te]
+    acfg = cfg["attribution"]
+    attributions, attr_run_stats = attribute(
+        prep.df, prep.txs, prep.addr_map, test_entities,
+        alpha=float(acfg["fdr_alpha"]), min_count=int(acfg["min_observations"]),
+        top_k=int(acfg["top_k_candidates"]))
+    attribution_eval = {
+        **evaluate_attribution(attributions, truth_ent, labels),
+        "engine": attr_run_stats,
+    }
+
+    # ---- transaction-level head (roadmap §16.4-G) -------------------------
+    from .detect.transaction_head import TransactionHead
+    from .features.extract import transaction_feature_matrix
+
+    truth_tx = pl.read_csv(truth_dir / "truth_txs.csv")
+    all_scores = cal.transform(raw_scores(np.arange(len(prep.nodes))))
+    entity_scores = {e: float(v) for e, v in zip(prep.nodes, all_scores)}
+    tx_m, tx_names = transaction_feature_matrix(prep.txs, fm, entity_scores)
+    tx_lab = dict(zip(truth_tx.get_column("txid").to_list(),
+                      truth_tx.get_column("illicit").to_list()))
+    tx_y = np.array([tx_lab.get(t, 0) for t in tx_m.get_column("txid").to_list()],
+                    dtype=np.int8)
+    # Split transactions by their PARENT ENTITY'S fold, so a transaction never
+    # lands on the opposite side of the boundary from the entity that made it.
+    fold_of: dict[str, str] = {}
+    for fname, fidx in (("train", tr), ("test", te)):
+        for i in fidx:
+            fold_of[prep.nodes[i]] = fname
+    tx_fold = np.array([fold_of.get(e, "other")
+                        for e in tx_m.get_column("sender_entity").to_list()])
+    tx_X = tx_m.select(tx_names).to_numpy().astype(np.float32)
+    tr_mask, te_mask = tx_fold == "train", tx_fold == "test"
+
+    tx_metrics = {"n_transactions": int(tx_m.height),
+                  "n_illicit": int(tx_y.sum()),
+                  "n_train": int(tr_mask.sum()), "n_test": int(te_mask.sum()),
+                  "note": "Split follows the parent entity's fold; no entity straddles."}
+    if tr_mask.sum() > 50 and te_mask.sum() > 20 and tx_y[tr_mask].sum() > 5:
+        tx_head = TransactionHead(seed=seed, backend=cfg["supervised"]["backend"]).fit(
+            tx_X[tr_mask], tx_y[tr_mask], tx_names)
+        tx_scores = tx_head.predict_proba(tx_X[te_mask])
+        tx_metrics.update(M.evaluate(tx_y[te_mask], tx_scores, threshold))
+        tx_metrics["classification"] = M.classification_report_at(
+            tx_y[te_mask], tx_scores, threshold)
+        tx_head.save(artifacts / "transaction_head.pkl")
+        (artifacts / "tx_feature_names.json").write_text(json.dumps(tx_names))
+    else:
+        tx_metrics["note"] += " Insufficient labelled transactions to fit a head."
+
     # ---- persist ----------------------------------------------------------
     sup.save(artifacts / "supervised.pkl")
     nov.save(artifacts / "novelty.pkl")
@@ -154,6 +219,9 @@ def train(capture: Path, truth_dir: Path, artifacts: Path,
         "results": results,
         "reliability_curve": reliability,
         "ablation": ablation,
+        "failure_gallery": gallery,
+        "attribution": attribution_eval,
+        "transaction_level": tx_metrics,
         "fusion_sweep": fusion_sweep,
         "splits": split_report(labels, splits, fm),
         "label_mapping": label_stats,

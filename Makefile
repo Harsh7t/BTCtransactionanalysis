@@ -68,3 +68,6 @@ clean:
 
 geoip:            ## fetch DB-IP Lite (CC-BY). Build-time only; result is committed.
 	./scripts/fetch_geoip.sh
+
+sensitivity:      ## attribution accuracy vs observation coverage -> the honest curve
+	$(PY) -m btcfusion.cli sensitivity

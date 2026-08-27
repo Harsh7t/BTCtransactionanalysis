@@ -275,3 +275,50 @@ def build_feature_matrix(df: pl.DataFrame, txs: pl.DataFrame, edges: pl.DataFram
 
 def feature_names(matrix: pl.DataFrame) -> list[str]:
     return [c for c in matrix.columns if c != "entity"]
+
+
+TX_FEATURES = [
+    "value_out", "n_outputs", "n_inputs", "output_entropy", "peel_ratio",
+    "fee_ratio", "round_frac", "structuring_frac", "hour_utc", "weekday",
+    "n_announcements", "in_out_ratio_tx", "parent_entity_score",
+    "parent_n_tx", "value_share_of_entity",
+]
+
+
+def transaction_feature_matrix(txs: pl.DataFrame, fm: pl.DataFrame,
+                               entity_scores: dict[str, float]
+                               ) -> tuple[pl.DataFrame, list[str]]:
+    """Per-transaction features for the secondary alert head (roadmap §16.4-G).
+
+    Roughly a dozen transaction-local signals PLUS the parent entity's score,
+    which is what stops this being a weaker duplicate of the entity model: a
+    transaction is suspicious partly because of what it looks like and partly
+    because of whose it is.
+    """
+    t = transaction_features(txs)
+    if "n_tx_sent" in fm.columns:
+        parent_tx = fm.select(["entity", "n_tx_sent"])
+    else:
+        parent_tx = pl.DataFrame({"entity": [], "n_tx_sent": []},
+                                 schema={"entity": pl.Utf8, "n_tx_sent": pl.Float64})
+    entity_out = (t.group_by("sender_entity")
+                  .agg(pl.col("value_out").sum().alias("_entity_total")))
+
+    m = (t.join(parent_tx, left_on="sender_entity", right_on="entity", how="left")
+          .join(entity_out, on="sender_entity", how="left")
+          .with_columns([
+              pl.col("sender_entity")
+                .replace_strict(entity_scores, default=0.0, return_dtype=pl.Float64)
+                .alias("parent_entity_score"),
+              pl.col("n_tx_sent").cast(pl.Float64).fill_null(0.0).alias("parent_n_tx"),
+              (pl.col("value_out") / pl.col("_entity_total").clip(1))
+                .alias("value_share_of_entity"),
+              (pl.col("n_inputs") / pl.col("n_outputs").clip(1)).alias("in_out_ratio_tx"),
+          ]))
+    if "n_announcements" not in m.columns:
+        m = m.with_columns(pl.lit(0).alias("n_announcements"))
+
+    names = [c for c in TX_FEATURES if c in m.columns]
+    m = m.with_columns([pl.col(c).cast(pl.Float64).fill_null(0.0).fill_nan(0.0)
+                        for c in names])
+    return m.select(["txid", "sender_entity"] + names), names
