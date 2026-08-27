@@ -59,6 +59,9 @@ CREATE TABLE IF NOT EXISTS entity_txs (
     value_out BIGINT, fee BIGINT, n_inputs BIGINT, n_outputs BIGINT,
     output_entropy DOUBLE, peel_ratio DOUBLE, tx_score DOUBLE
 );
+CREATE TABLE IF NOT EXISTS entity_addresses (
+    run_id VARCHAR, entity VARCHAR, address VARCHAR
+);
 CREATE TABLE IF NOT EXISTS quarantine (
     run_id VARCHAR, reason VARCHAR, n BIGINT, sample JSON
 );
@@ -109,7 +112,7 @@ class Store:
 
     def clear_run(self, run_id: str) -> None:
         for t in ("alerts", "evidence", "attributions", "shap_values", "entity_edges",
-                  "entity_txs", "quarantine", "behaviour"):
+                  "entity_txs", "entity_addresses", "quarantine", "behaviour"):
             self.con.execute(f"DELETE FROM {t} WHERE run_id = ?", [run_id])
 
     def set_verdict(self, run_id: str, entity: str, verdict: str, reason: str = "") -> None:

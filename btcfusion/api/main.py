@@ -259,6 +259,42 @@ def graph(entity: str, hops: int = 2, run_id: str | None = None):
         s.close()
 
 
+@app.get("/api/transactions")
+def transactions(run_id: str | None = None, min_score: float = 0.0, limit: int = 200):
+    """Transaction-level alert list - the PS's 'wallet/transaction' second half."""
+    s_ = store()
+    try:
+        rid = run_id or (s_.latest_run() or {}).get("run_id")
+        return {"run_id": rid, "transactions": s_.q(
+            "SELECT * FROM entity_txs WHERE run_id = ? AND tx_score >= ? "
+            "ORDER BY tx_score DESC LIMIT ?", [rid, min_score, limit])}
+    finally:
+        s_.close()
+
+
+@app.get("/api/graph/{entity}/expand")
+def graph_expand(entity: str, run_id: str | None = None):
+    """Constituent wallets and transactions beneath one entity supernode."""
+    s_ = store()
+    try:
+        rid = run_id or (s_.latest_run() or {}).get("run_id")
+        addrs = s_.q("SELECT address FROM entity_addresses "
+                     "WHERE run_id = ? AND entity = ? LIMIT 200", [rid, entity])
+        txs = s_.q("SELECT txid, ts, value_out FROM entity_txs "
+                   "WHERE run_id = ? AND entity = ? ORDER BY tx_score DESC LIMIT 60",
+                   [rid, entity])
+        return {
+            "entity": entity,
+            "addresses": [{"address": a["address"]} for a in addrs[:60]],
+            "transactions": [{"txid": t["txid"], "ts": str(t["ts"]),
+                              "value": int(t["value_out"] or 0)} for t in txs],
+            "truncated": len(addrs) > 60,
+            "n_addresses_total": len(addrs),
+        }
+    finally:
+        s_.close()
+
+
 # ---------------------------------------------------- model transparency
 @app.get("/api/model")
 def model_panel():
@@ -272,8 +308,12 @@ def model_panel():
                 "note": "No trained artefacts. Run `make train` to produce them."}
     manifest = json.loads(art.read_text())
     leak = ROOT / "artifacts" / "v1" / "leak_test.json"
+    sens = ROOT / "artifacts" / "v1" / "sensitivity.json"
+    ext = ROOT / "artifacts" / "v1" / "external_validation.json"
     return {"available": True, "manifest": manifest,
-            "leak_test": json.loads(leak.read_text()) if leak.exists() else None}
+            "leak_test": json.loads(leak.read_text()) if leak.exists() else None,
+            "sensitivity": json.loads(sens.read_text()) if sens.exists() else None,
+            "external": json.loads(ext.read_text()) if ext.exists() else None}
 
 
 @app.get("/api/provenance")

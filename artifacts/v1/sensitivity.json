@@ -1,0 +1,75 @@
+{
+  "curve": [
+    {
+      "coverage": 0.05,
+      "top1_accuracy": 0.5927,
+      "top3_accuracy": 0.6309,
+      "mrr": 0.6113,
+      "attempt_rate": 0.825,
+      "n_evaluable": 4000,
+      "random_choice_baseline": 0.7398,
+      "mean_candidates": 1.729
+    },
+    {
+      "coverage": 0.1,
+      "top1_accuracy": 0.6713,
+      "top3_accuracy": 0.7206,
+      "mrr": 0.6948,
+      "attempt_rate": 0.8722,
+      "n_evaluable": 4000,
+      "random_choice_baseline": 0.5845,
+      "mean_candidates": 2.346
+    },
+    {
+      "coverage": 0.2,
+      "top1_accuracy": 0.7806,
+      "top3_accuracy": 0.8283,
+      "mrr": 0.8032,
+      "attempt_rate": 0.8692,
+      "n_evaluable": 4000,
+      "random_choice_baseline": 0.3955,
+      "mean_candidates": 3.272
+    },
+    {
+      "coverage": 0.35,
+      "top1_accuracy": 0.8623,
+      "top3_accuracy": 0.893,
+      "mrr": 0.8775,
+      "attempt_rate": 0.895,
+      "n_evaluable": 4000,
+      "random_choice_baseline": 0.2839,
+      "mean_candidates": 3.994
+    },
+    {
+      "coverage": 0.5,
+      "top1_accuracy": 0.8942,
+      "top3_accuracy": 0.9117,
+      "mrr": 0.9028,
+      "attempt_rate": 0.8975,
+      "n_evaluable": 4000,
+      "random_choice_baseline": 0.237,
+      "mean_candidates": 4.431
+    },
+    {
+      "coverage": 0.75,
+      "top1_accuracy": 0.8968,
+      "top3_accuracy": 0.9077,
+      "mrr": 0.902,
+      "attempt_rate": 0.8942,
+      "n_evaluable": 4000,
+      "random_choice_baseline": 0.2071,
+      "mean_candidates": 4.865
+    },
+    {
+      "coverage": 1.0,
+      "top1_accuracy": 0.9007,
+      "top3_accuracy": 0.9112,
+      "mrr": 0.9058,
+      "attempt_rate": 0.8865,
+      "n_evaluable": 4000,
+      "random_choice_baseline": 0.2,
+      "mean_candidates": 4.999
+    }
+  ],
+  "note": "Attribution accuracy as a function of how much of the P2P network the collector observes. The chain layer is identical at every point - only observation coverage changes. Reported because first-relay attribution is contested and Bitcoin Core actively defends against it; a single accuracy number at an unstated coverage would be an overclaim."
+}

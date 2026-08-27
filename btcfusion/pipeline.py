@@ -445,22 +445,44 @@ def run_pipeline(path: Path, *, truth_dir: Path | None = None,
     store.insert_frame("entity_edges", sub_edges.select(
         ["src", "dst", "value", "n_tx"]).head(60000), run_id)
 
-    # Per-transaction detail for alerted entities (§16.4-G, §16.4-H).
-    tf = transaction_features(prep.txs.filter(pl.col("sender_entity").is_in(top_entities)))
+    # Calibrated confidence per alerted entity, used by the transaction layer
+    # both as a feature and as the fallback score.
     conf_map = {prep.nodes[i]: float(confidence[i]) for i in keep}
-    tx_rows = tf.select([
+
+    # Per-transaction detail for alerted entities (§16.4-G).
+    # Scored by the trained transaction head where one exists; the parent
+    # entity's confidence is the fallback, so the column always means something.
+    from .features.extract import transaction_feature_matrix
+    sub_txs = prep.txs.filter(pl.col("sender_entity").is_in(top_entities))
+    tf = transaction_features(sub_txs)
+    tx_feat, _ = transaction_feature_matrix(sub_txs, prep.fm, conf_map)
+    head_path = (Path(artifacts) / "transaction_head.pkl") if artifacts else None
+    if head_path is not None and head_path.exists():
+        from .detect.transaction_head import TransactionHead
+        head = TransactionHead.load(head_path)
+        names = [c for c in head.feature_names if c in tx_feat.columns]
+        tx_scores = head.predict_proba(
+            tx_feat.select(names).to_numpy().astype(np.float32))
+        tx_feat = tx_feat.with_columns(pl.Series("tx_score", tx_scores))
+    else:
+        tx_feat = tx_feat.with_columns(
+            pl.col("sender_entity").replace_strict(
+                conf_map, default=0.0, return_dtype=pl.Float64).alias("tx_score"))
+
+    tx_rows = (tf.select([
         pl.col("sender_entity").alias("entity"), "txid",
         pl.col("timestamp").alias("ts"), "value_out", "fee",
         pl.col("n_inputs").cast(pl.Int64), pl.col("n_outputs").cast(pl.Int64),
         "output_entropy", "peel_ratio",
-    ]).with_columns(
-        # Transaction-level score: the parent entity's confidence modulated by how
-        # unusual this specific transaction is. Cheap, and it answers the "can you
-        # flag a specific transaction?" question the PS wording invites.
-        (pl.col("entity").replace_strict(conf_map, default=0.0, return_dtype=pl.Float64)
-         * (0.6 + 0.4 * (1.0 - pl.col("output_entropy").fill_null(0.5)))
-         ).alias("tx_score"))
+    ]).join(tx_feat.select(["txid", "tx_score"]), on="txid", how="left")
+      .with_columns(pl.col("tx_score").fill_null(0.0)))
     store.insert_frame("entity_txs", tx_rows.head(40000), run_id)
+
+    # Address sub-layer for alerted entities (§16.4-H): the PS names WALLETS.
+    store.insert_frame("entity_addresses", prep.addr_map
+                       .filter(pl.col("entity_id").is_in(top_entities))
+                       .rename({"entity_id": "entity"})
+                       .select(["entity", "address"]).head(20000), run_id)
 
     q = prep.receipt.get("quarantine_breakdown", {})
     if q:

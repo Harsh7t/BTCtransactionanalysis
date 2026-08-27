@@ -120,7 +120,16 @@ export const api = {
   verdict: (entity: string, verdict: string, reason = '') =>
     post<{ ok: boolean }>(`/api/alerts/${encodeURIComponent(entity)}/verdict`,
       { verdict, reason }),
-  model: () => get<{ available: boolean; manifest?: any; leak_test?: any; note?: string }>('/api/model'),
+  transactions: (minScore = 0, limit = 200) =>
+    get<{ run_id: string; transactions: TxRow[] }>(
+      `/api/transactions?min_score=${minScore}&limit=${limit}`),
+  expand: (entity: string) => get<{
+    entity: string; addresses: { address: string }[];
+    transactions: { txid: string; ts: string; value: number }[];
+    truncated: boolean; n_addresses_total: number;
+  }>(`/api/graph/${encodeURIComponent(entity)}/expand`),
+  model: () => get<{ available: boolean; manifest?: any; leak_test?: any;
+                     sensitivity?: any; external?: any; note?: string }>('/api/model'),
   provenance: () => get<any>('/api/provenance'),
 
   upload: async (file: File) => {

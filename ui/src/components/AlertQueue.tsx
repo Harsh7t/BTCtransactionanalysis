@@ -12,7 +12,7 @@
  *   a trade-off attached, not a list.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { api, fmt, type Alert, type Receipt } from '../api';
+import { api, fmt, type Alert, type Receipt, type TxRow } from '../api';
 import { Bar, Button, Chip, Eyebrow, IconFilter, Notice, Panel, Spinner, Stat, Tag } from '../ui';
 
 const TYPOLOGIES = ['peel_chain', 'fan_out_in', 'rapid_layering',
@@ -69,6 +69,10 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
   const [asnType, setAsnType] = useState<string>('');
   const [unreviewed, setUnreviewed] = useState(false);
   const [showSuppressed, setShowSuppressed] = useState(false);
+  // The PS asks why a wallet OR a transaction was flagged. Entities are the
+  // investigative unit and stay the default; transactions are one click away.
+  const [level, setLevel] = useState<'entities' | 'transactions'>('entities');
+  const [txRows, setTxRows] = useState<TxRow[]>([]);
 
   useEffect(() => {
     let live = true;
@@ -93,6 +97,11 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
     && (!unreviewed || !a.verdict)
   ), [alerts, threshold, typology, asnType, unreviewed, showSuppressed]);
 
+  useEffect(() => {
+    if (level !== 'transactions') return;
+    api.transactions(0, 200).then((r) => setTxRows(r.transactions)).catch(() => {});
+  }, [level]);
+
   const suppressed = alerts.filter((a) => a.confidence < threshold).length;
   const asnTypes = useMemo(
     () => Array.from(new Set(alerts.map((a) => a.top_asn_type).filter(Boolean))), [alerts]);
@@ -112,6 +121,66 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
     <div className="p-3">
       <IngestReceipt r={receipt} />
 
+      <div className="flex items-center gap-0.5 mb-2.5" role="tablist"
+           aria-label="Alert granularity">
+        {(['entities', 'transactions'] as const).map((l) => (
+          <button key={l} role="tab" aria-selected={level === l}
+                  onClick={() => setLevel(l)}
+                  className="mono text-xs px-3 h-7 border transition-colors duration-150 cursor-pointer"
+                  style={level === l
+                    ? { borderColor: 'var(--ink)', background: 'var(--ink)', color: '#fff' }
+                    : { borderColor: 'var(--rule)', color: 'var(--ink-soft)' }}>
+            {l}
+          </button>
+        ))}
+        <span className="mono text-2xs text-ink-dim ml-2.5">
+          {level === 'entities'
+            ? 'wallet clusters \u2014 the investigative unit'
+            : 'individual TXIDs, scored by the transaction head'}
+        </span>
+      </div>
+
+      {level === 'transactions' ? (
+        <Panel pad={false}>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse min-w-[56rem]">
+              <thead>
+                <tr className="border-b border-rule">
+                  {['txid', 'entity', 'time', 'value', 'in/out', 'entropy', 'score'].map((h, i) => (
+                    <th key={h} className={`eyebrow px-3 py-2 ${i >= 3 ? 'text-right' : 'text-left'}`}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {txRows.map((t) => (
+                  <tr key={t.txid} className="border-b border-rule-soft hover:bg-fusion-wash transition-colors duration-150">
+                    <td className="px-3 py-2 mono text-sm">{t.txid.slice(0, 22)}\u2026</td>
+                    <td className="px-3 py-2 mono text-sm">
+                      <button onClick={() => onOpen(t.entity)}
+                              className="text-chain hover:underline cursor-pointer">{t.entity}</button>
+                    </td>
+                    <td className="px-3 py-2 mono text-2xs text-ink-dim">{fmt.time(String(t.ts))}</td>
+                    <td className="px-3 py-2 num mono text-sm">\u20bf {fmt.btc(t.value_out)}</td>
+                    <td className="px-3 py-2 num mono text-2xs">{t.n_inputs}/{t.n_outputs}</td>
+                    <td className="px-3 py-2 num mono text-2xs">{(t.output_entropy ?? 0).toFixed(2)}</td>
+                    <td className="px-3 py-2 num">
+                      <div className="flex items-center gap-2 justify-end">
+                        <Bar value={t.tx_score} width={70} height={8} />
+                        <span className="mono text-md font-semibold">{fmt.conf(t.tx_score)}</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {txRows.length === 0 && (
+            <div className="p-6 text-center text-sm text-ink-soft">
+              No transaction-level scores in this run.
+            </div>
+          )}
+        </Panel>
+      ) : (<>
       {/* --- filters ------------------------------------------------------- */}
       <div className="flex flex-wrap items-center gap-2 mb-2.5">
         <span className="eyebrow flex items-center gap-1.5"><IconFilter className="w-3 h-3" />filters</span>
@@ -240,6 +309,8 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
           </div>
         )}
       </Panel>
+
+      </>)}
 
       {/* --- what we are NOT showing, and what it would cost to look -------- */}
       <Panel className="mt-3" pad={false}>

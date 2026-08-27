@@ -13,12 +13,13 @@ import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { Bar, Eyebrow, Notice, Panel, Spinner, Tag } from '../ui';
 import { ReliabilityCurve } from './Charts';
+import { SensitivityCurve } from './SensitivityCurve';
 
 const pct = (v: number | undefined | null) =>
   v === undefined || v === null || Number.isNaN(v) ? '—' : v.toFixed(3);
 
 function Row({ label, value, layer, note }: {
-  label: string; value: string; layer?: 'fusion' | 'confirm' | 'network' | 'danger'; note?: string;
+  label: string; value: string; layer?: 'fusion' | 'confirm' | 'network' | 'danger' | 'chain'; note?: string;
 }) {
   return (
     <tr className="border-b border-rule-soft last:border-0">
@@ -124,6 +125,14 @@ export function ModelPanel() {
               <Row label="Held-out typology recall" value={pct(ho.recall_at_threshold)}
                    layer="network"
                    note="laundering patterns never trained on" />
+              {test.classification && (<>
+                <Row label="F1 (operating threshold)" value={pct(test.classification.f1)}
+                     layer="fusion" />
+                <Row label="MCC" value={pct(test.classification.mcc)} layer="fusion"
+                     note="the honest single figure under class imbalance" />
+                <Row label="Accuracy" value={pct(test.classification.accuracy)}
+                     note={`"predict everything licit" scores ${pct(test.classification.accuracy_all_negative_baseline)} — which is why accuracy is not used to judge this system`} />
+              </>)}
             </tbody>
           </table>
         </Panel>
@@ -211,6 +220,146 @@ export function ModelPanel() {
           </Panel>
         </div>
       </div>
+
+
+      {/* The differentiator, measured - and the curve it sits on. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {met.attribution && (
+          <Panel accent="network">
+            <Eyebrow layer="network" right={`${met.attribution.n_evaluable.toLocaleString()} evaluable entities`}>
+              attribution accuracy — the differentiator, measured
+            </Eyebrow>
+            <div className="flex items-end gap-4 mb-2">
+              <div>
+                <div className="font-cond font-bold text-3xl leading-none">
+                  {pct(met.attribution.top1_accuracy)}
+                </div>
+                <div className="mono text-2xs text-ink-dim">top-1 accuracy</div>
+              </div>
+              <div className="mono text-sm text-ink-soft pb-1">
+                vs <b>{pct(met.attribution.random_choice_baseline)}</b> for random choice
+                among {met.attribution.mean_candidates} candidates
+              </div>
+            </div>
+            <table className="w-full">
+              <tbody>
+                <Row label="Top-3 accuracy" value={pct(met.attribution.top3_accuracy)} />
+                <Row label="Mean reciprocal rank" value={pct(met.attribution.mrr)} />
+                <Row label="Attempt rate" value={pct(met.attribution.attempt_rate)}
+                     note="how often the engine was willing to answer at all" />
+                <Row label="Abstentions" value={String(met.attribution.n_abstained)}
+                     layer="confirm"
+                     note="shared infrastructure — correctly declined rather than guessed" />
+                <Row label="Single-candidate share"
+                     value={pct(met.attribution.single_candidate_share)}
+                     note="cases where top-1 was trivially correct" />
+              </tbody>
+            </table>
+            <p className="text-sm text-ink-soft mt-2">{met.attribution.note}</p>
+          </Panel>
+        )}
+
+        {m.sensitivity && (
+          <Panel accent="network">
+            <Eyebrow layer="network">attribution vs observation coverage</Eyebrow>
+            <SensitivityCurve rows={m.sensitivity.curve} />
+            <p className="text-sm text-ink-soft mt-2">
+              Each point regenerates the capture with the chain layer held identical and
+              only observation coverage changed. Note where the two lines cross: below
+              roughly 10% coverage the engine performs <i>worse than guessing</i>, because
+              it is mostly seeing relays rather than origin announcements and picks
+              confidently among them. That limit is measured, not argued.
+            </p>
+            <p className="text-sm text-ink-soft mt-2">{m.sensitivity.note}</p>
+          </Panel>
+        )}
+      </div>
+
+      {met.transaction_level && met.transaction_level.pr_auc !== undefined && (
+        <Panel>
+          <Eyebrow layer="chain"
+                   right={`${Number(met.transaction_level.n_transactions).toLocaleString()} transactions`}>
+            transaction-level head — "why a wallet/transaction was flagged"
+          </Eyebrow>
+          <table className="w-full">
+            <tbody>
+              <Row label="PR-AUC" value={pct(met.transaction_level.pr_auc)} layer="chain"
+                   note={`base rate ${pct(met.transaction_level.baseline_pr_auc)}`} />
+              <Row label="Precision @ 50" value={pct(met.transaction_level.precision_at_50)} />
+              {met.transaction_level.classification && (
+                <Row label="F1" value={pct(met.transaction_level.classification.f1)} />
+              )}
+            </tbody>
+          </table>
+          <p className="text-sm text-ink-soft mt-2">
+            A second model head over transaction-local features plus the parent entity's
+            score. Split follows the parent entity's fold, so no entity straddles the
+            train/test boundary. The entity remains the better investigative unit; this
+            exists because the PS asks about transactions too, and the answer should be a
+            model rather than arithmetic on the entity's score.
+          </p>
+        </Panel>
+      )}
+
+      {(met.failure_gallery || []).length > 0 && (
+        <Panel accent="danger">
+          <Eyebrow layer="danger">failure gallery — cases we get wrong</Eyebrow>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            {met.failure_gallery.slice(0, 6).map((f: any) => (
+              <div key={f.entity + f.kind} className="border border-rule bg-surface-2 p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <Tag layer={f.kind === 'false_positive' ? 'fusion' : 'network'}>
+                    {f.kind.replace('_', ' ')}
+                  </Tag>
+                  <span className="mono text-sm font-semibold">{f.entity}</span>
+                  <span className="mono text-2xs text-ink-dim ml-auto">score {pct(f.score)}</span>
+                </div>
+                <div className="mono text-2xs text-ink-dim mb-1">
+                  truth: {f.archetype}{f.typology ? ` · ${f.typology}` : ''}
+                </div>
+                <p className="text-sm text-ink-soft">{f.why}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-sm text-ink-soft mt-2">
+            Published deliberately. A system whose limits are known is more useful than one
+            whose limits are undiscovered, and every reason above is derived from the
+            entity's own features rather than written after the fact.
+          </p>
+        </Panel>
+      )}
+
+      {m.external && (
+        <Panel accent={m.external.available ? 'confirm' : 'data'}>
+          <Eyebrow layer="confirm">external validation — real labelled Bitcoin data</Eyebrow>
+          {m.external.available ? (
+            <>
+              <div className="flex items-end gap-4 mb-2">
+                <div>
+                  <div className="font-cond font-bold text-3xl leading-none">
+                    {pct(m.external.f1)}
+                  </div>
+                  <div className="mono text-2xs text-ink-dim">illicit-class F1 (Elliptic)</div>
+                </div>
+                <div className="mono text-sm text-ink-soft pb-1">
+                  PR-AUC {pct(m.external.pr_auc)} ·
+                  {' '}{Number(m.external.n_labelled).toLocaleString()} labelled nodes ·
+                  {' '}positive rate {pct(m.external.positive_rate)}
+                </div>
+              </div>
+              <p className="text-sm text-ink-soft">
+                Published reference: {m.external.published_reference.source} reports
+                illicit-class F1 ≈ {m.external.published_reference.illicit_f1} for
+                {' '}{m.external.published_reference.model}.
+                {' '}{m.external.published_reference.caveat}
+              </p>
+              <p className="text-sm text-ink-soft mt-2">{m.external.note}</p>
+            </>
+          ) : (
+            <p className="text-sm text-ink-soft">{m.external.note}</p>
+          )}
+        </Panel>
+      )}
 
       {/* The fusion weights are a trade-off, so show the curve they sit on. */}
       {(met.fusion_sweep || []).length > 0 && (
