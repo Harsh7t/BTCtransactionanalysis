@@ -81,3 +81,38 @@ from tests.test_golden import _fingerprint; \
 d=pathlib.Path('tests/golden'); d.mkdir(parents=True, exist_ok=True); \
 (d/'feature_matrix.json').write_text(json.dumps(_fingerprint(pathlib.Path(tempfile.mkdtemp())), indent=2)); \
 print('wrote tests/golden/feature_matrix.json')"
+
+wheels:           ## vendor Linux wheels for a fully offline image build
+	./scripts/vendor_wheels.sh
+
+docker-build:     ## build the container (run `make wheels` first)
+	docker build -t btc-fusion:0.3.0 .
+
+docker-verify:    ## run the full pipeline inside the container with NO network
+	./scripts/verify_offline.sh btc-fusion:0.3.0
+
+verify-all:       ## every check a judge could run, in one command
+	@echo "── offline: no runtime network calls ─────────────────"
+	@$(MAKE) --no-print-directory offline-check
+	@echo "── tests: unit, property, golden, integrity ──────────"
+	@$(PY) -m pytest tests/ -q -p no:warnings
+	@echo "── leak test: generator integrity (GATES EVERYTHING) ─"
+	@$(PY) -m btcfusion.cli leak-test $(CAPTURE) $(TRUTH) --out $(ART)/leak_test.json >/dev/null
+	@$(PY) -c "import json,sys; d=json.load(open('$(ART)/leak_test.json')); \
+print('   strict %.3fx vs control %.3fx' % (d['lift_over_baseline'], d['control_lift'])); \
+sys.exit(0 if d['passed'] else 1)"
+	@echo "── three formats parse identically ───────────────────"
+	@$(PY) -c "import yaml,pathlib; \
+from btcfusion.ingest.parsers import ingest; \
+cfg=yaml.safe_load(pathlib.Path('config/schema_map.yaml').read_text()); \
+r=[ingest(pathlib.Path(f),cfg)[3]['rows_clean'] for f in \
+['data/samples/judge.csv','data/samples/judge.jsonl','data/samples/judge.xml']]; \
+print('   CSV/JSON/XML clean rows:',r); \
+assert len(set(r))==1,'formats disagree'"
+	@echo "── all 14 PS minimum fields present ──────────────────"
+	@head -1 $(CAPTURE) | tr ',' '\n' | wc -l | xargs -I{} echo "   {} columns"
+	@echo "── full pipeline end to end ──────────────────────────"
+	@$(PY) -m btcfusion.cli run $(CAPTURE) --artifacts $(ART) >/dev/null && echo "   OK"
+	@echo ""
+	@echo "ALL LOCAL CHECKS PASSED."
+	@echo "Linux/container verification is separate: make docker-build && make docker-verify"

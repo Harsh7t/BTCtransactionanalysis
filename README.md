@@ -100,6 +100,18 @@ SHA-256, the seed, the feature version, the model backend and the git SHA.
 
 ---
 
+## Documentation
+
+| Document | What it is |
+|---|---|
+| [`docs/technical_writeup.md`](docs/technical_writeup.md) | **The graded deliverable** — approach, model choice, explainability method |
+| [`docs/ps_compliance.md`](docs/ps_compliance.md) | Requirement-by-requirement matrix with verification commands |
+| [`docs/generator_parameters.md`](docs/generator_parameters.md) | Every distribution and its source — read before quoting any figure |
+| [`docs/model_card.md`](docs/model_card.md) | Intended use, out-of-scope use, metrics, failure modes |
+| [`docs/attribution_method.md`](docs/attribution_method.md) | The differentiator, in full |
+| [`docs/external_validation.md`](docs/external_validation.md) | The dual-track strategy |
+| [`REPRODUCE.md`](REPRODUCE.md) | One command → every published number |
+
 ## Layout
 
 ```
