@@ -81,3 +81,39 @@ typologies:
     tranches: [8, 20]
     threshold_sats: 100000000   # keep each tranche just under 1 BTC
     asn_spread: [3, 7]
+
+# ---------------------------------------------------------------- profiles
+# Named sizes. `--profile` overrides the values above.
+#
+# THE ILLICIT RATE FALLS AS THE PROFILE GROWS, and that is the point rather than a
+# side effect. Campaign count stays roughly fixed while the licit population
+# scales, so the positive rate moves toward what an analyst actually faces. The
+# small profiles are easier than reality; `bulk` and `stress` are closer to it,
+# and their metrics should be read as the honest ones.
+#
+# Real Bitcoin runs ~400k transactions/day. `stress` is a few hours of global
+# traffic, or a sustained capture of a targeted subset - which is what a
+# vantage-point collector realistically holds.
+profiles:
+  smoke:                     # seconds; for tests and CI
+    n_entities: 300
+    days: 10
+    n_campaigns: 8
+    n_licit_passthrough: 25
+  demo:                      # the default: ~560k rows, fast enough to show live
+    n_entities: 4200
+    days: 45
+    n_campaigns: 55
+    n_licit_passthrough: 320
+  bulk:                      # the PS's "bulk" upper band; realistic base rate
+    n_entities: 16000
+    days: 60
+    n_campaigns: 70
+    n_licit_passthrough: 1400
+    observation_coverage: 0.25
+  stress:                    # load test: is the pipeline still linear here?
+    n_entities: 40000
+    days: 75
+    n_campaigns: 110
+    n_licit_passthrough: 3600
+    observation_coverage: 0.20

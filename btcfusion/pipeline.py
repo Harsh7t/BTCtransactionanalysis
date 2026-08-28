@@ -317,6 +317,25 @@ def run_pipeline(path: Path, *, truth_dir: Path | None = None,
 
     keep.sort(key=lambda i: (-(round(float(confidence[i]), 2) + float(adjust[i])),
                              -float(value_out[i]), -float(raw[i])))
+    # NOVELTY RESERVE. The classifier ranks what it was trained on; by
+    # construction it cannot rank a laundering pattern nobody labelled. Blending
+    # the novelty score into the ranking was measured and rejected - it halved
+    # precision to buy a few points of coverage. Reserving slots buys the same
+    # coverage at a cost bounded to exactly those slots.
+    n_slots = int(dcfg["alerts"].get("novelty_slots", 0))
+    novelty_raised: set[str] = set()
+    if n_slots and len(keep) >= n_slots:
+        keep = keep[:max_alerts - n_slots]
+        chosen = set(keep)
+        for i in np.argsort(-novelty):
+            i = int(i)
+            if i in chosen or confidence[i] < threshold * 0.5:
+                continue
+            keep.append(i)
+            novelty_raised.add(prep.nodes[i])
+            if len(novelty_raised) >= n_slots:
+                break
+
     top_entities = [prep.nodes[i] for i in keep]
 
     # ---- stage 7: attribute ---------------------------------------------
@@ -393,6 +412,7 @@ def run_pipeline(path: Path, *, truth_dir: Path | None = None,
             "novelty": float(novelty[i]), "supervised": float(supervised[i]),
             "evidence_strength": float(evidence_vec[i]),
             "typologies": "|".join(sorted({m["typology"] for m in matches.get(eid, [])})),
+            "raised_by": "novelty" if eid in novelty_raised else "classifier",
             "narrative": narratives.get(eid, ""),
             "n_addresses": int(r.get("n_addresses", 0) or 0),
             "n_tx": int(r.get("n_tx_sent", 0) or 0),

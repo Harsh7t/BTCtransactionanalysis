@@ -247,14 +247,17 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
                     </div>
                   </td>
                   <td className="px-3 py-2.5 align-top max-w-[16rem]">
-                    {typs.length ? (
+                    {a.raised_by === 'novelty' ? (
+                      <Tag layer="network"
+                           title="The classifier ranked this low; the novelty detector ranked it high. Reserved-slot alert - the answer to typologies nobody labelled.">
+                        no typology match · unsupervised
+                      </Tag>
+                    ) : typs.length ? (
                       <div className="flex flex-wrap gap-1">
                         {typs.map((t) => <Tag key={t} layer="fusion">{fmt.typology(t)}</Tag>)}
                       </div>
                     ) : (
-                      <Tag layer="network" title="Raised by unsupervised novelty, no rule matched">
-                        no typology match · unsupervised
-                      </Tag>
+                      <Tag layer="data">no rule matched</Tag>
                     )}
                   </td>
                   <td className="px-3 py-2.5 align-top">

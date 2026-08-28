@@ -23,6 +23,23 @@ def cmd_generate(args) -> int:
     from .generator.simulate import simulate
 
     cfg = load_cfg("generator.yaml")
+    if getattr(args, "profile", None):
+        prof = cfg.get("profiles", {}).get(args.profile)
+        if not prof:
+            print(f"unknown profile {args.profile!r}; "
+                  f"available: {', '.join(cfg.get('profiles', {}))}", file=sys.stderr)
+            return 2
+        # Profiles set population/time/typology knobs; explicit flags still win.
+        for k, v in prof.items():
+            if k in ("n_entities",):
+                cfg["population"]["n_entities"] = v
+            elif k in ("days",):
+                cfg["time"]["days"] = v
+            elif k in ("observation_coverage",):
+                cfg["network"]["observation_coverage"] = v
+            else:
+                cfg["typologies"][k] = v
+        print(f"profile {args.profile}: {prof}")
     if args.entities:
         cfg["population"]["n_entities"] = args.entities
     if args.days:
@@ -138,6 +155,8 @@ def main(argv=None) -> int:
     g.add_argument("--name", default="capture")
     g.add_argument("--format", default="csv",
                    choices=["csv", "json", "xml", "json-array", "all"])
+    g.add_argument("--profile", choices=["smoke", "demo", "bulk", "stress"],
+                   help="named size preset from config/generator.yaml")
     g.add_argument("--entities", type=int)
     g.add_argument("--days", type=int)
     g.add_argument("--coverage", type=float)

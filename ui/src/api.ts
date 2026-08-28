@@ -10,6 +10,7 @@ export type Alert = {
   n_ips: number; top_asn: number; top_asn_type: string; top_country: string;
   attribution_confidence: number; attribution_status: string;
   verdict: string | null; verdict_reason: string | null;
+  raised_by?: string;
 };
 
 export type Evidence = {

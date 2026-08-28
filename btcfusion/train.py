@@ -292,8 +292,13 @@ def _fusion_sweep(sup, nov, ev, X, y, ca, te, ho, cfg, threshold) -> list[dict]:
     P, N = sup.predict_proba(X), nov.score(X)
     neg = te[y[te] == 0]
     mixed = np.concatenate([ho, neg]) if len(ho) else te
-    grid = [(1.0, 0.0, 0.0), (0.90, 0.0, 0.10), (0.85, 0.05, 0.10),
-            (0.80, 0.15, 0.05), (0.75, 0.15, 0.10), (0.65, 0.25, 0.10)]
+    # Grid concentrated where the answer actually lives. An earlier grid spaced
+    # points evenly across the range and, on a realistic base rate, every one of
+    # them except pure-supervised was catastrophically bad - so the sweep looked
+    # like a choice between poor options when the good region was simply unsampled.
+    grid = [(1.00, 0.00, 0.00), (0.95, 0.05, 0.00), (0.90, 0.10, 0.00),
+            (0.80, 0.20, 0.00), (0.95, 0.00, 0.05), (0.85, 0.05, 0.10),
+            (0.65, 0.25, 0.10)]
     shipped = cfg["fusion"]["weights"]
     out = []
     for w_s, w_n, w_e in grid:

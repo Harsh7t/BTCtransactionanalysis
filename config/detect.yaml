@@ -20,22 +20,47 @@ novelty:
 fusion:
   # Evidence is weighted lowest on purpose: the typology matchers corroborate,
   # they never decide. If evidence ever dominates, this has become a rules engine.
-  # MEASURED, not chosen by feel. eval/ sweeps these and records the full curve
-  # in metrics.json (fusion_sweep). The trade-off is real and goes both ways:
-  #   supervised only  -> test P@10 1.00, but held-out-typology recall 0.12
-  #   heavy novelty    -> held-out recall 0.33, but test P@10 drops to 0.70
-  # This point keeps 0.90 precision in the top ten while roughly doubling recall
-  # on laundering patterns the classifier has never seen. Evidence stays lowest:
-  # matchers corroborate, they never decide.
+  # MEASURED, and re-measured when the base rate changed - which broke the
+  # original choice. See metrics.json -> fusion_sweep on both profiles.
+  #
+  # At the demo profile's 3.3% positive rate, blending 10% typology evidence cost
+  # ~10% PR-AUC and bought held-out recall. At the bulk profile's REALISTIC 0.39%
+  # rate the same weights cost 87% of PR-AUC (0.311 -> 0.040) and bought nothing.
+  #
+  # The component measurements explain it. On bulk: supervised PR-AUC 0.321 (81x
+  # base rate), novelty 0.023 (5.8x), evidence 0.003 - BELOW the base rate. The
+  # evidence term carries no ranking signal at all there, and because it is a
+  # coarse 0-or-high value it promotes a broad band of unremarkable entities over
+  # genuinely suspicious ones.
+  #
+  # FINAL ANSWER: ranking is the classifier's job alone. The sweep on bulk is
+  # unambiguous - 1.00/0.00/0.00 wins PR-AUC (0.306) and P@50 (0.90), and even a
+  # 5% novelty weight halves both to buy 5 points of held-out recall.
+  #
+  # That coverage still matters, so it is bought a different way: `novelty_slots`
+  # below reserves part of the queue for the highest-novelty entities the
+  # classifier did NOT surface, tagged so the analyst knows why they are there.
+  # Blending corrupts every rank; reserving costs exactly the slots it uses. This
+  # is also what Plate 04 always showed - a distinct "NO TYPOLOGY MATCH ·
+  # UNSUPERVISED" row type, not a blended score.
+  #
+  # Evidence is weighted ZERO for ranking. That is not a demotion of the
+  # typology matchers - it is their correct role. They were always specified as
+  # EVIDENCE GENERATORS that corroborate an alert the model raised, never as
+  # detectors, and they still appear in every case file's evidence chain. They
+  # simply no longer vote on the ordering.
   weights:
-    supervised: 0.85
-    novelty: 0.05
-    evidence: 0.10
+    supervised: 1.00
+    novelty: 0.00
+    evidence: 0.00
 
 alerts:
   # The analyst's afternoon is a handful of case files, not a spreadsheet.
   threshold: 0.75
   max_alerts: 60
+  # Slots held for entities the classifier ranked low but the novelty detector
+  # ranked high - the answer to "what about typologies you never anticipated?"
+  novelty_slots: 8
   # How many flagged entities to consider before campaign linking collapses them
   # into operations. Larger pool = better grouping, slightly more work.
   campaign_pool: 4000

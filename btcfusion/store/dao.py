@@ -33,7 +33,8 @@ CREATE TABLE IF NOT EXISTS alerts (
     n_ips BIGINT, top_asn BIGINT, top_asn_type VARCHAR, top_country VARCHAR,
     attribution_confidence DOUBLE, attribution_status VARCHAR,
     n_linked_entities BIGINT, linked_entities JSON,
-    verdict VARCHAR, verdict_reason VARCHAR, feedback_adjust DOUBLE
+    verdict VARCHAR, verdict_reason VARCHAR, feedback_adjust DOUBLE,
+    raised_by VARCHAR
 );
 CREATE TABLE IF NOT EXISTS evidence (
     run_id VARCHAR, entity VARCHAR, typology VARCHAR, strength DOUBLE,
