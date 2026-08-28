@@ -1,7 +1,8 @@
 # Model card — BTC-FUSION detector
 
-**Version** artifacts/v1 · feature version 7 · seed 20260826 · 132 features ·
-42,245 training entities · backend `sklearn_histgb` · git `dab45c0`
+**Version** artifacts/bulk · feature version 7 · seed 20260826 · 132 features ·
+backend `sklearn_histgb` · fusion weights 1.00 / 0.00 / 0.00 (ranking is the classifier's
+job alone; see technical_writeup.md §4)
 
 ## Intended use
 
@@ -31,22 +32,23 @@ rules are enforced by assertions that raise, not warn.
 
 ## Evaluation
 
-Test fold n=14,083, 463 positives, base rate 0.0329.
+Reported on the **bulk** profile (2,467,299 rows), test fold n=59,043, 232 positives,
+base rate 0.0039 — the realistic one. The demo profile's 3.3% positive rate produces
+materially better figures and should not be quoted as the system's performance.
 
 | Metric | Value |
 |---|---|
-| PR-AUC | 0.4635 (14.1× base rate) |
-| Precision @ 50 | 0.94 |
-| Precision @ 10 | 1.00 — **wide CI, ≈±0.30; prefer P@50** |
-| Recall @ precision 0.80 | 0.194 |
-| ECE | 0.0494 |
-| F1 | 0.5380 |
-| MCC | 0.5359 |
-| Held-out-typology recall | 0.1972 |
-| Attribution top-1 | 0.9133 (chance 0.3449) |
+| PR-AUC | 0.3048 (78× base rate) |
+| Precision @ 50 | 0.90 |
+| Precision @ 10 | 0.90 — **wide CI, ≈±0.30; prefer P@50** |
+| ECE | 0.0405 |
+| F1 | 0.3969 |
+| MCC | 0.4017 |
+| Held-out-typology recall | 0.1176 |
+| Attribution top-1 | 0.9321 (chance 0.3378) |
 
-**Accuracy is 0.9745 against an all-negative baseline of 0.9671, and on the held-out fold
-it falls below its own baseline.** Accuracy is not used to judge this system.
+**Accuracy is 0.9960 against an all-negative baseline of 0.9961** — by accuracy the model
+is worse than doing nothing. Accuracy is not used to judge this system.
 
 ## Known failure modes
 

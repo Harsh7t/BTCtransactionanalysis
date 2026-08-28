@@ -10,59 +10,59 @@
   "features_missing": [],
   "per_field": {
     "mean_feerate_sat_vb": {
-      "pr_auc": 0.099,
-      "lift": 1.186,
+      "pr_auc": 0.0967,
+      "lift": 1.158,
       "tier": "strict"
     },
     "ephemeral_linux_frac": {
-      "pr_auc": 0.097,
-      "lift": 1.163,
+      "pr_auc": 0.0965,
+      "lift": 1.156,
       "tier": "strict"
     },
     "ephemeral_windows_frac": {
-      "pr_auc": 0.0982,
-      "lift": 1.177,
+      "pr_auc": 0.0979,
+      "lift": 1.172,
       "tier": "strict"
     },
     "round_number_frac": {
-      "pr_auc": 0.0834,
+      "pr_auc": 0.0835,
       "lift": 1.0,
       "tier": "strict"
     },
     "mean_fee_sat": {
-      "pr_auc": 0.1016,
-      "lift": 1.218,
+      "pr_auc": 0.1017,
+      "lift": 1.217,
       "tier": "informative"
     },
     "mean_value_out": {
-      "pr_auc": 0.1221,
-      "lift": 1.464,
+      "pr_auc": 0.118,
+      "lift": 1.413,
       "tier": "informative"
     },
     "std_value_out": {
-      "pr_auc": 0.0937,
-      "lift": 1.123,
+      "pr_auc": 0.094,
+      "lift": 1.125,
       "tier": "informative"
     },
     "total_out": {
-      "pr_auc": 0.116,
-      "lift": 1.39,
+      "pr_auc": 0.1178,
+      "lift": 1.41,
       "tier": "informative"
     },
     "total_in": {
-      "pr_auc": 0.1121,
-      "lift": 1.344,
+      "pr_auc": 0.1104,
+      "lift": 1.322,
       "tier": "informative"
     }
   },
-  "informative_tier_pr_auc": 0.1916,
-  "informative_tier_lift": 2.297,
-  "leak_pr_auc": 0.1043,
-  "baseline_pr_auc": 0.0834,
-  "lift_over_baseline": 1.25,
+  "informative_tier_pr_auc": 0.1907,
+  "informative_tier_lift": 2.283,
+  "leak_pr_auc": 0.1032,
+  "baseline_pr_auc": 0.0835,
+  "lift_over_baseline": 1.235,
   "threshold_ratio": 1.3,
-  "control_full_feature_pr_auc": 0.8401,
-  "control_lift": 10.07,
+  "control_full_feature_pr_auc": 0.8414,
+  "control_lift": 10.074,
   "n_train": 49336,
   "n_test": 21144,
   "interpretation": "The strict set should sit near 1.0x baseline while the full feature set sits far above it. The GAP between them is the evidence that detection comes from topology, timing and network structure rather than from an artefact of how the data was written.",

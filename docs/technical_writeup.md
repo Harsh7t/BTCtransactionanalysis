@@ -7,8 +7,14 @@ Every figure in this document is copied from `artifacts/v1/metrics.json`,
 of them from a fixed seed. If a number is not in one of those files, it is not a result
 and does not appear here.
 
-Artefacts described: `artifacts/v1`, feature version 7, seed 20260826, 132 features,
-42,245 training entities, backend `sklearn_histgb`, git `dab45c0`.
+**Two profiles are reported throughout.** `demo` (564,303 rows) is what the live
+demonstration runs on, because it completes in 12 seconds. `bulk` (2,467,299 rows) is
+what the numbers should be judged on, because its 0.39% positive rate is close to what an
+analyst actually faces — the demo profile's 3.3% flatters the model. Where they differ,
+**believe bulk**.
+
+Artefacts: `artifacts/v1` (demo) and `artifacts/bulk`, feature version 7, seed 20260826,
+132 features, backend `sklearn_histgb`.
 
 ---
 
@@ -114,29 +120,62 @@ algorithm) and **records which backend produced every number in the manifest**.
 
 ### Where the lift actually comes from
 
-| Stage | Test PR-AUC | P@10 |
+| Stage | demo PR-AUC | bulk PR-AUC |
 |---|---|---|
-| typology rules only | 0.0245 | 0.00 |
-| + unsupervised novelty | 0.1235 | 0.10 |
-| + GBDT on engineered features | 0.4402 | 1.00 |
-| + Node2Vec embeddings | **0.5239** | 1.00 |
-| + fusion & calibration (shipped) | 0.4635 | 1.00 |
+| typology rules only | 0.0245 | 0.0030 |
+| + unsupervised novelty | 0.1235 | 0.0207 |
+| + GBDT on engineered features | 0.4516 | 0.2809 |
+| + Node2Vec embeddings | **0.5483** | **0.3231** |
+| + isotonic calibration (shipped) | 0.5291 | 0.3048 |
 
-Rules alone sit near the 0.0329 base rate. **The lift is the model** — which is precisely
-what the PS's "a working model, not just rules" asks for. Typology matchers never gate an
-alert; they attach corroboration with real TXIDs to alerts the model already raised.
+Rules alone sit at or below the base rate on both profiles — 0.0030 against a 0.0039 base
+rate on bulk is *worse than chance*. **The lift is entirely the model**, which is what the
+PS's "a working model, not just rules" asks for. Typology matchers never gate an alert;
+they attach corroboration with real TXIDs to alerts the model already raised.
 
-### The fusion weights are a measured choice, not a preference
+The final row is the cost of calibration, roughly 4%, and it buys a probability that means
+something (ECE 0.041 on bulk).
 
-| supervised / novelty / evidence | Test PR-AUC | P@10 | Held-out recall |
-|---|---|---|---|
-| 1.00 / 0.00 / 0.00 | 0.5148 | 1.00 | 0.2113 |
-| **0.85 / 0.05 / 0.10 (shipped)** | **0.4637** | **1.00** | **0.2394** |
-| 0.65 / 0.25 / 0.10 | 0.4341 | 1.00 | 0.2817 |
+### The fusion weights — a measurement that overturned our own design
 
-Leaning entirely on the supervised model maximises PR-AUC on the four typologies it
-trained on and is measurably worse at the two it has never seen. Anyone can pick weights;
-the claim worth making is that we measured the curve and chose a point on it.
+The original design fused three signals into one ranking score, weighted
+0.85 supervised / 0.05 novelty / 0.10 evidence, and the demo profile supported that: it
+cost ~10% of PR-AUC and bought held-out recall.
+
+**Training on the bulk profile showed the choice did not survive a realistic base rate.**
+
+| Config | demo PR-AUC | **bulk PR-AUC** |
+|---|---|---|
+| classifier alone | 0.5483 | 0.3231 |
+| 0.85 / 0.05 / 0.10 (original) | 0.4750 | **0.0382** |
+
+An 88% collapse. Measuring each component on bulk explains it:
+
+| signal, alone on bulk | PR-AUC | vs 0.0039 base rate |
+|---|---|---|
+| supervised classifier | 0.3231 | 83× |
+| unsupervised novelty | 0.0207 | 5.3× |
+| **typology evidence** | **0.0030** | **0.77× — below chance** |
+
+*(All three are rows of the ablation table in `metrics.json`, not a separate experiment.)*
+
+The evidence term carries no ranking signal at a realistic base rate, and because it is a
+coarse near-binary value, weighting it at 10% promotes a broad band of unremarkable
+entities above genuinely suspicious ones. We also tested rank-normalised blending, in case
+this was a scale mismatch; it was not, and it made things slightly worse.
+
+**Ranking is now the classifier's job alone (1.00 / 0.00 / 0.00).** The typology matchers
+keep the role they were always specified for — evidence generators that corroborate an
+alert in the case file — they simply no longer vote on the ordering.
+
+Coverage of unlabelled typologies still matters, so it is bought differently: **eight of
+sixty queue slots are reserved** for the highest-novelty entities the classifier did not
+surface, tagged as a distinct row type. Blending corrupts every rank; reserving costs
+exactly the slots it uses. This is also what Plate 04 always showed — a separate
+`NO TYPOLOGY MATCH · UNSUPERVISED` row, not a blended score.
+
+This is the finding we would most want a reviewer to ask about. Our own configuration was
+wrong, our own measurement caught it, and the correction is in the artefacts.
 
 ## 5. Explainability method
 
@@ -156,58 +195,71 @@ Four layers, because "explainable" is a graded deliverable and not garnish.
 
 ## 6. Evaluation
 
-Metrics are chosen for a 3.3% positive rate. **Accuracy never judges this system**, and
-where it is reported it is always beside its own baseline — see below for why.
+Metrics are chosen for a low positive rate. **Accuracy never judges this system**, and
+where it appears it is always beside its own baseline — see below for why.
 
-### Entity-level (test fold: n=14,083, 463 positives, base rate 0.0329)
+### Entity-level
 
-| Metric | Value |
-|---|---|
-| **PR-AUC** | **0.4635** — 14.1× the 0.0329 base rate |
-| Precision @ 10 | 1.00 |
-| Precision @ 50 | 0.94 |
-| Recall @ precision 0.80 | 0.194 |
-| **Expected calibration error** | **0.0494** (target < 0.05) |
-| F1 | 0.5380 |
-| **MCC** | **0.5359** — the honest single figure under imbalance |
-| Accuracy | 0.9745 — **against an all-negative baseline of 0.9671** |
+| Metric | demo (564k, base 3.3%) | **bulk (2.47M, base 0.39%)** |
+|---|---|---|
+| test entities / positives | 14,083 / 463 | 59,043 / 232 |
+| **PR-AUC** | 0.5291 (16× base) | **0.3048 (78× base)** |
+| Precision @ 10 | 0.90 | 0.90 |
+| Precision @ 50 | 0.92 | **0.90** |
+| **ECE** | 0.0506 | **0.0405** |
+| F1 | 0.5725 | **0.3969** |
+| **MCC** | 0.5657 | **0.4017** |
+| accuracy | 0.9753 | 0.9960 |
+| *all-negative baseline* | *0.9671* | ***0.9961*** |
 
-**On accuracy.** A model predicting "everything licit" scores 0.9671 here. Ours scores
-0.9745. On the held-out-typology fold accuracy actually falls *below* its own baseline.
-That is the entire argument for why this project reports PR-AUC and MCC and treats
-accuracy as an artefact to be shown with its control attached.
+**Read the bulk column.** F1 falls from 0.57 to 0.40 because a 0.39% positive rate is
+genuinely harder — the demo profile was flattering us. The *lift* over base rate improves
+(16× → 78×), and precision holds at 0.90 in the top fifty, which is what an analyst
+actually experiences.
 
-**On Precision@10.** It reads 1.00, and it is the least reliable number on this page: a
-bootstrap over the test fold puts its 95% interval at roughly ±0.30, because it is
-computed over ten items. **P@50 = 0.94 is the honest headline.**
+**On accuracy.** On bulk the model scores **0.9960 against an all-negative baseline of
+0.9961** — by accuracy, it is *worse than doing nothing*. That single line is the whole
+argument for why this project reports PR-AUC and MCC, and treats accuracy as an artefact
+that must never be shown without its control.
+
+**On Precision@10.** It is the least reliable figure on this page: a bootstrap over the
+test fold puts its 95% interval at roughly ±0.30, because it is computed over ten items.
+**P@50 is the honest headline.**
 
 ### Generalisation to typologies never trained on
 
-71 held-out entities, scored against the test fold's negatives (base rate 0.0052):
-**PR-AUC 0.0788, recall at operating threshold 0.1972.**
+`dormancy_burst` and `cross_asn_structuring` are held out entirely — not one example in
+the train or calibration folds, enforced by a guard that raises.
 
-Materially worse than the test score. **That gap is the finding** — it is the honest
+| | demo | bulk |
+|---|---|---|
+| held-out entities | 71 | 119 |
+| recall at threshold | 0.2254 | **0.1176** |
+
+Materially worse than the test score on both. **That gap is the finding** — the honest
 bound on how the system behaves against a laundering pattern nobody anticipated.
 
 ### Transaction-level (§16.4-G)
 
-137,273 transactions, 1,929 illicit. **PR-AUC 0.0961 against a 0.0121 base rate — 7.9×.**
-P@50 0.40. A second model head over transaction-local features plus the parent entity's
-score, split by the parent's fold so no entity straddles the boundary.
+137,273 transactions, 1,929 illicit (1.2% of the tested fold). **PR-AUC 0.1098 against a
+0.0121 base rate — 9.1×.** P@10 0.90, P@50 0.40. A second model head over
+transaction-local features plus the parent entity's score, split by the parent's fold so
+no entity straddles the boundary. Weaker than the entity head, which is expected: a single
+transaction carries far less signal than a wallet cluster's whole history.
 
 ### Attribution — the differentiator, measured
 
-| Metric | Value |
-|---|---|
-| **Top-1 accuracy** | **0.9133** |
-| Random-choice baseline | 0.3449 (mean 3.58 candidates) |
-| Top-3 accuracy | 0.9142 |
-| MRR | 0.9138 |
-| Attempt rate | 98.6% |
-| Abstentions | 195 — shared infrastructure, correctly declined |
+| Metric | demo | bulk |
+|---|---|---|
+| **Top-1 accuracy** | 0.9143 | **0.9321** |
+| Random-choice baseline | 0.3449 | 0.3378 |
+| Top-3 / MRR | 0.9153 / 0.9148 | 0.9328 / 0.9324 |
+| Attempt rate | 98.6% | 98.9% |
 
 A top-1 score is meaningless without knowing how many candidates it was chosen from, so
-the candidate count and the chance baseline ship with it. The engine is **2.6× chance**.
+the candidate count and the chance baseline ship with it. The engine runs at **2.8×
+chance**, and it *improves* with scale — more observations per entity is exactly what the
+diffusion-aware weighting rewards.
 
 ### Attribution vs observation coverage — the honest curve
 
@@ -221,16 +273,15 @@ the candidate count and the chance baseline ship with it. The engine is **2.6× 
 
 **Below roughly 10% coverage the engine performs worse than guessing.** With almost no
 observations it is mostly seeing relays rather than origin announcements, and it picks
-among them confidently. That crossing point is a real limit of the method, it is measured
-rather than argued, and it is left visible in the Model panel.
+among them confidently. That crossing point is a real limit of the method, measured rather
+than argued, and left visible in the Model panel.
 
 ### Failure gallery
 
-Three false positives (two `transient` licit pass-through wallets, one `retail`) and three
-false negatives (two mules, one extortion actor). The transient false positives are the
-informative ones: legitimate short-lived pass-through wallets are structurally
-near-identical to laundering mules, and separating them needs counterparty reputation this
-system deliberately does not model.
+Six cases, reasons derived from each entity's own features. The informative ones are the
+false positives on `transient` wallets: legitimate short-lived pass-through wallets are
+structurally near-identical to laundering mules, and separating them needs counterparty
+reputation this system deliberately does not model.
 
 ## 7. Limitations
 
@@ -241,14 +292,18 @@ The section most teams omit and an NTRO reader will respect most.
 - **Generator parameters are engineering defaults, not literature-sourced values.** See
   `docs/generator_parameters.md`. Until they are sourced, the defensible claim is about
   the *method and system*, not the absolute detection rate.
-- **Class balance is higher than a real base rate**: 3.3% in the test fold, and it drifts
-  across folds (train 8.8%, calib 11.6%) because laundering campaigns cluster in time
-  and the split is temporally forward.
+- **Class balance still exceeds a real base rate**, though the bulk profile narrows the
+  gap: 0.39% at entity level and 0.44% at transaction level. It drifts across folds
+  because laundering campaigns cluster in time and the split is temporally forward.
 - **Precision@10's confidence interval is wide.** Quote P@50.
-- **Entity resolution is high-precision, moderate-recall.** Purity 0.9958, but receive-only
-  addresses fragment into singletons — correct behaviour for these heuristics, and it
+- **Entity resolution is high-precision, moderate-recall.** Purity 0.9958, but 164,414 of
+  197,995 demo entities are singletons — receive-only addresses fragment — correct behaviour for these heuristics, and it
   means the entity count far exceeds the true actor count.
 - **Attribution degrades with coverage and inverts below ~10%.** See the curve above.
+- **Our own fusion weights were wrong until the bulk run.** They were tuned at a 3.3%
+  positive rate and lost 88% of PR-AUC at 0.39%. Any hyperparameter chosen on one base
+  rate should be assumed invalid at another until re-measured — including the ones we
+  ship now.
 - **Single observations cannot support confident attribution, by design.** Bitcoin Core's
   randomised per-peer relay delay exists precisely to defeat first-relay inference
   (Koshy FC'14, Biryukov CCS'14; Dandelion++ BIP-156 proposed, never merged). We model the

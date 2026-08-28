@@ -133,17 +133,16 @@ def train(capture: Path, truth_dir: Path, artifacts: Path,
 
     # ---- ablation: where does the lift actually come from? ---------------
     # The shipped configuration is passed in as the final row. Without it the
-    # table ends on the pure supervised score while the scorecard reports the
-    # FUSED, CALIBRATED one - two different numbers for "the model", which is
-    # exactly the inconsistency a reviewer pounces on. Fusion trades a little
-    # ranking quality for robustness on typologies the classifier never saw, and
-    # the table should show that trade rather than stop one row early.
+    # table ends on the raw classifier score while the scorecard reports the
+    # CALIBRATED one - two different numbers for "the model", which is exactly the
+    # inconsistency a reviewer pounces on.
     ablation = _ablation(X, y, tr, te, prep.feature_names, cfg, seed, ev,
                          shipped=te_cal)
 
-    # The fusion weights are a real trade-off between precision on KNOWN
-    # typologies and recall on UNSEEN ones. Sweeping it here means the shipped
-    # configuration is a measured choice on a published curve, not a preference.
+    # Swept every run, on every profile. This is what caught the original weights:
+    # they looked like a reasonable trade at the demo profile's 3.3% positive rate
+    # and destroyed 88% of PR-AUC at bulk's realistic 0.39%. A weight chosen once
+    # and never re-measured is a weight chosen for a base rate you no longer have.
     fusion_sweep = _fusion_sweep(sup, nov, ev, X, y, ca, te, ho, cfg, threshold)
 
     # ---- failure gallery: the cases we get wrong --------------------------
@@ -273,11 +272,15 @@ def _ablation(X, y, tr, te, names, cfg, seed, ev, shipped=None) -> list[dict]:
                 **_score(y[te], s2.predict_proba(X[te]))})
 
     if shipped is not None:
-        out.append({"stage": "+ fusion & calibration (shipped)",
+        out.append({"stage": "+ isotonic calibration (shipped)",
                     **_score(y[te], shipped),
-                    "note": ("Fusion blends in unsupervised novelty and typology evidence. "
-                             "It costs some ranking quality on KNOWN typologies and buys "
-                             "coverage of unknown ones - see held-out recall.")})
+                    "note": ("Ranking is the classifier's job alone - novelty and evidence "
+                             "carry zero weight, see config/detect.yaml. This row therefore "
+                             "measures the cost of CALIBRATION only: isotonic regression is "
+                             "monotone in principle but the small raw-score blend used to "
+                             "break ties inside a saturated bin can reorder neighbours. "
+                             "Coverage of unlabelled typologies is bought by reserved "
+                             "queue slots, not by blending.")})
     return out
 
 

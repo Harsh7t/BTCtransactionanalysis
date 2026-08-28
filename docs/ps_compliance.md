@@ -8,12 +8,12 @@ Run `make verify-all` to execute the machine-checkable subset in one pass.
 | # | PS wording | Implemented in | Verified by | Status |
 |---|---|---|---|---|
 | 1 | "complete system (offline)" | whole repo | `make offline-check` → PASS, no runtime host in any application file | ✅ |
-| 2 | "ingests bulk Bitcoin transaction/network metadata" | `ingest/parsers.py` | `make run` → 565,670 rows in 11.8 s | ✅ |
+| 2 | "ingests bulk Bitcoin transaction/network metadata" | `ingest/parsers.py` | `make run` → 2,467,299 rows in 105 s (bulk); 564,303 in 11.8 s (demo) | ✅ |
 | 3 | "in CSV/JSON/XML" | `ingest/parsers.py:READERS` | all three parse to **identical** clean-row counts | ✅ |
-| 4 | "correlates network-layer (IP/port/timing) with blockchain-layer (wallet/TXID/amount)" | `attribute/engine.py` | `metrics.json → attribution.top1_accuracy` = **0.9133** vs 0.3449 chance | ✅ |
-| 5 | "applies AI/ML to detect anomalies" | `detect/supervised.py`, `detect/novelty.py` | test PR-AUC **0.4635** vs 0.0329 base rate | ✅ |
-| 6 | "cluster entities" | `graph/resolve.py` + `detect/novelty.py` | **two levels**: 197,995 address clusters (purity 0.9958) and 214 HDBSCAN behavioural archetypes | ✅ |
-| 7 | "generate prioritized, explainable investigative leads" | `pipeline.py`, `explain/` | ranked queue, isotonic-calibrated (ECE 0.0494), exact SHAP → narrative | ✅ |
+| 4 | "correlates network-layer (IP/port/timing) with blockchain-layer (wallet/TXID/amount)" | `attribute/engine.py` | `metrics.json → attribution.top1_accuracy` = **0.9321** vs 0.3378 chance (bulk) | ✅ |
+| 5 | "applies AI/ML to detect anomalies" | `detect/supervised.py`, `detect/novelty.py` | test PR-AUC **0.3048** vs 0.0039 base rate on bulk (78×) | ✅ |
+| 6 | "cluster entities" | `graph/resolve.py` + `detect/novelty.py` | **two levels**: 829,821 address clusters on bulk (purity 0.9958) and 214 HDBSCAN behavioural archetypes | ✅ |
+| 7 | "generate prioritized, explainable investigative leads" | `pipeline.py`, `explain/` | ranked queue, isotonic-calibrated (ECE 0.0405 on bulk), exact SHAP → narrative | ✅ |
 
 ## Challenge objectives
 
@@ -21,8 +21,8 @@ Run `make verify-all` to execute the machine-checkable subset in one pass.
 |---|---|---|---|---|
 | 8 | "Ingest & parse a bulk metadata dataset (timestamp, src/dst IP & port, TXID, input/output wallet addresses, amounts, fee, script type)" | `ingest/` | all 14 fields present: `head -1 data/samples/capture.csv` | ✅ |
 | 9 | "Build an entity/transaction graph linking **IPs, wallets, and transactions**" | `graph/build.py` | `/api/graph/{e}` (entity layer) + `/api/graph/{e}/expand` (wallet + transaction layers) | ✅ |
-| 10 | "Implement AI/ML detection use case with a **working model — not just rules**" | `detect/` | ablation: rules alone **0.0245**, full model **0.5239** | ✅ |
-| 11 | "ranked, explainable alert list (why a **wallet/transaction** was flagged, with a confidence score)" | `pipeline.py`, `detect/transaction_head.py` | `/api/alerts` (entity) and `/api/transactions` (TXID, PR-AUC 0.0961 vs 0.0121 base) | ✅ |
+| 10 | "Implement AI/ML detection use case with a **working model — not just rules**" | `detect/` | ablation on bulk: rules alone **0.0030** (below the 0.0039 base rate), model **0.3231** | ✅ |
+| 11 | "ranked, explainable alert list (why a **wallet/transaction** was flagged, with a confidence score)" | `pipeline.py`, `detect/transaction_head.py` | `/api/alerts` (entity) and `/api/transactions` (TXID, PR-AUC 0.1098 vs 0.0121 base) | ✅ |
 | 12 | "Present findings via a simple dashboard or link-analysis visualization" | `ui/` | 4 screens; case file carries evidence with real TXIDs | ✅ |
 
 ## Section 4 — Suggested AI/ML Focus Areas
