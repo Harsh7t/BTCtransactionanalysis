@@ -72,6 +72,9 @@ geoip:            ## fetch DB-IP Lite (CC-BY). Build-time only; result is commit
 sensitivity:      ## attribution accuracy vs observation coverage -> the honest curve
 	$(PY) -m btcfusion.cli sensitivity
 
+validate-elliptic-pp: ## validate at the ACTOR level on real data (Elliptic++)
+	$(PY) -m btcfusion.cli validate-elliptic-pp
+
 validate-external: ## validate the chain-side detector on real labelled data (Elliptic)
 	$(PY) -m btcfusion.cli validate-external
 

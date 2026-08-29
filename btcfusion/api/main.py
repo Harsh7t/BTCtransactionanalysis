@@ -310,10 +310,12 @@ def model_panel():
     leak = ROOT / "artifacts" / "v1" / "leak_test.json"
     sens = ROOT / "artifacts" / "v1" / "sensitivity.json"
     ext = ROOT / "artifacts" / "v1" / "external_validation.json"
+    epp = ROOT / "artifacts" / "v1" / "elliptic_pp_validation.json"
     return {"available": True, "manifest": manifest,
             "leak_test": json.loads(leak.read_text()) if leak.exists() else None,
             "sensitivity": json.loads(sens.read_text()) if sens.exists() else None,
-            "external": json.loads(ext.read_text()) if ext.exists() else None}
+            "external": json.loads(ext.read_text()) if ext.exists() else None,
+            "elliptic_pp": json.loads(epp.read_text()) if epp.exists() else None}
 
 
 @app.get("/api/provenance")

@@ -1,0 +1,73 @@
+{
+  "citation": {
+    "source": "Elmougy & Liu 2023, Elliptic++: A Graph Network of Bitcoin Transactions and Wallet Addresses (KDD '23)",
+    "repo": "git-disl/EllipticPlusPlus on GitHub - see docs/external_validation.md",
+    "licence": "not stated upstream - cite, do not redistribute"
+  },
+  "available": true,
+  "wallet_classification": {
+    "n_labelled_rows": 367472,
+    "n_labelled_addresses": 265354,
+    "train_steps": [
+      1,
+      33
+    ],
+    "test_steps": [
+      34,
+      49
+    ],
+    "n_train_rows": 239213,
+    "n_features": 56,
+    "headline_address_disjoint": {
+      "n": 96023,
+      "positive_rate": 0.0556,
+      "pr_auc": 0.3745,
+      "precision": 0.3711,
+      "recall": 0.4143,
+      "f1": 0.3915,
+      "mcc": 0.3542
+    },
+    "naive_repeated_addresses": {
+      "n": 99293,
+      "positive_rate": 0.0543,
+      "pr_auc": 0.3842,
+      "precision": 0.3761,
+      "recall": 0.4204,
+      "f1": 0.397,
+      "mcc": 0.3609
+    },
+    "n_test_addresses_dropped_as_seen_in_train": 3270,
+    "note": "`headline_address_disjoint` is the figure to quote. `naive_repeated_addresses` keeps addresses the model already saw in training and is reported ONLY to show how much that inflates the result."
+  },
+  "cospend_clustering": {
+    "heuristic": "H1 common-input-ownership only (see docstring for why not H2)",
+    "n_transactions": 202804,
+    "n_addresses_clustered": 400212,
+    "n_entities": 146783,
+    "cospend_edges": 274313,
+    "mean_addresses_per_entity": 2.727,
+    "n_labelled_addresses_in_clusters": 125280,
+    "cluster_sizes_labelled": {
+      "n_multi_address_clusters": 8441,
+      "max": 11001,
+      "p50": 1,
+      "p99": 29
+    },
+    "largest_entity_addresses_all": 14885,
+    "label_agreement": {
+      "micro": 0.996,
+      "n_pairs": 145991852,
+      "micro_excl_largest": 0.9939,
+      "macro": 0.9979
+    },
+    "label_agreement_shuffled_control": {
+      "micro": 0.8205,
+      "macro": 0.8209,
+      "micro_excl_largest": 0.8198
+    },
+    "lift_macro": 1.216,
+    "lift_micro_excl_largest": 1.212,
+    "note": "Quote `macro` - every cluster weighted equally. `micro` is pair-weighted and therefore dominated by the largest cluster, which is why the size distribution is reported next to it. The control shuffles labels across the SAME clusters, holding sizes fixed."
+  },
+  "scope": "Chain-side and actor-level only. Elliptic++ has no IP, port or propagation data, so it cannot exercise the network-chain correlation this project is built around."
+}

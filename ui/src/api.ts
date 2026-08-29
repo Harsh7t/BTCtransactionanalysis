@@ -130,7 +130,8 @@ export const api = {
     truncated: boolean; n_addresses_total: number;
   }>(`/api/graph/${encodeURIComponent(entity)}/expand`),
   model: () => get<{ available: boolean; manifest?: any; leak_test?: any;
-                     sensitivity?: any; external?: any; note?: string }>('/api/model'),
+                     sensitivity?: any; external?: any; elliptic_pp?: any;
+                     note?: string }>('/api/model'),
   provenance: () => get<any>('/api/provenance'),
 
   upload: async (file: File) => {

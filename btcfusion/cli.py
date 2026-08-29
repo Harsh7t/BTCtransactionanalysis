@@ -140,6 +140,16 @@ def cmd_validate_external(args) -> int:
     return 0
 
 
+def cmd_validate_elliptic_pp(args) -> int:
+    from .eval.elliptic_pp import validate_elliptic_pp
+    res = validate_elliptic_pp(Path(args.root), seed=args.seed or 20260826)
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(res, indent=2))
+    print(json.dumps(res, indent=2))
+    return 0
+
+
 def cmd_serve(args) -> int:
     import uvicorn
     uvicorn.run("btcfusion.api.main:app", host=args.host, port=args.port, reload=args.reload)
@@ -195,6 +205,14 @@ def main(argv=None) -> int:
                     default=str(ROOT / "artifacts" / "v1" / "external_validation.json"))
     ve.add_argument("--seed", type=int)
     ve.set_defaults(func=cmd_validate_external)
+
+    pp = sub.add_parser("validate-elliptic-pp",
+                        help="validate at the ACTOR level on Elliptic++ (real data)")
+    pp.add_argument("--root", default=str(DATA / "external" / "elliptic_pp"))
+    pp.add_argument("--out",
+                    default=str(ROOT / "artifacts" / "v1" / "elliptic_pp_validation.json"))
+    pp.add_argument("--seed", type=int)
+    pp.set_defaults(func=cmd_validate_elliptic_pp)
 
     s = sub.add_parser("serve", help="run the API + UI")
     s.add_argument("--host", default="127.0.0.1")

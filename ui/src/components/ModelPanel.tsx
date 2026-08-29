@@ -361,6 +361,41 @@ export function ModelPanel() {
         </Panel>
       )}
 
+      {m.elliptic_pp?.available && (() => {
+        const w = m.elliptic_pp.wallet_classification;
+        const c = m.elliptic_pp.cospend_clustering;
+        return (
+          <Panel accent="confirm">
+            <Eyebrow layer="confirm" right="Elliptic++ · KDD'23">
+              external validation — at the actor level we actually ship
+            </Eyebrow>
+            <p className="text-sm text-ink-soft mb-3">
+              Elliptic validates a <em>transaction</em> classifier. This system scores
+              <em> entities</em>. Elliptic++ carries {Number(w.n_labelled_addresses).toLocaleString()}
+              {' '}labelled wallet addresses, so it tests the unit we ship — and the
+              clustering heuristic that produces it.
+            </p>
+            <table className="w-full">
+              <tbody>
+                <Row label="address PR-AUC" value={pct(w.headline_address_disjoint.pr_auc)}
+                     layer="fusion"
+                     note={`base rate ${pct(w.headline_address_disjoint.positive_rate)} · ${Number(w.headline_address_disjoint.n).toLocaleString()} test addresses`} />
+                <Row label="address F1" value={pct(w.headline_address_disjoint.f1)} layer="fusion"
+                     note={`split is address-disjoint; the naive figure keeping repeats is ${pct(w.naive_repeated_addresses.f1)}`} />
+                <Row label="co-spend clusters share a label"
+                     value={pct(c.label_agreement.macro)} layer="confirm"
+                     note={`vs ${pct(c.label_agreement_shuffled_control.macro)} label-shuffle control · lift ${c.lift_macro}×`} />
+                <Row label="largest cluster, real Bitcoin"
+                     value={Number(c.largest_entity_addresses_all).toLocaleString()}
+                     layer="danger"
+                     note="673 in our synthetic data — the supercluster collapse our generator does not reproduce" />
+              </tbody>
+            </table>
+            <p className="text-sm text-ink-soft mt-3">{m.elliptic_pp.scope}</p>
+          </Panel>
+        );
+      })()}
+
       {/* The fusion weights are a trade-off, so show the curve they sit on. */}
       {(met.fusion_sweep || []).length > 0 && (
         <Panel accent="fusion">

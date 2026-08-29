@@ -314,6 +314,35 @@ built around. That division is the dual-track strategy in
 [`docs/external_validation.md`](external_validation.md), stated up front rather than
 discovered by a reviewer.
 
+### Real labelled data at the ACTOR level — Elliptic++ (§16.4)
+
+The Elliptic run above validates a *transaction* classifier; this system ships an *entity*
+classifier. Elliptic++ (Elmougy & Liu, KDD'23) adds 822,942 labelled wallet addresses with
+56 named features, at our unit of analysis. Artefact:
+`artifacts/v1/elliptic_pp_validation.json`.
+
+**Address classification.** PR-AUC **0.3745** at a 5.56% base rate (6.7× lift), F1 0.3915,
+MCC 0.3542, over 96,023 test addresses; trained on time steps 1-33, tested on 34-49. The
+split is **address-disjoint**: 1.27M rows cover 823k addresses, illicit ones recurring about
+twice, so a plain temporal split would put the same address on both sides with the same
+label and let the model score a memorised identity. The artefact also records the naive
+figure (F1 0.3970) — guarding the trap changed little, which is worth stating precisely
+because it is a negative finding.
+
+**The co-spend heuristic, on real Bitcoin.** Every other clustering number here is measured
+against a generator that knew the answer. Running `graph/resolve.py`'s H1 on the real
+`AddrTx` edge list, addresses placed in the same cluster share a label **99.79%** of the
+time (macro, per cluster) against a **82.09%** label-shuffle control — lift 1.216, and
+stable at 1.212 with the largest cluster excluded. Agreement is necessary but not sufficient
+for correct clustering — two unrelated licit actors merged still agree — but it rules out
+gross over-merging across the illicit/licit boundary, which is the error that hides an
+actor from the queue.
+
+**What real data exposed that our generator does not produce.** The largest single address
+cluster is **14,885 addresses on real Bitcoin versus 673 in our synthetic data**, at
+comparable overall scale (400k vs 436k addresses). That is the documented supercluster
+collapse of common-input-ownership, and our generator has no analogue of it. See §7.
+
 ## 7. Limitations
 
 The section most teams omit and an NTRO reader will respect most.
@@ -330,6 +359,13 @@ The section most teams omit and an NTRO reader will respect most.
 - **Entity resolution is high-precision, moderate-recall.** Purity 0.9958, but 164,414 of
   197,995 demo entities are singletons — receive-only addresses fragment — correct behaviour for these heuristics, and it
   means the entity count far exceeds the true actor count.
+- **Our generator does not reproduce supercluster collapse.** On real Bitcoin the largest
+  common-input-ownership cluster reaches 14,885 addresses; on our synthetic data of
+  comparable size it reaches 673. Exchanges co-spend across customers and the heuristic
+  chains those merges until much of the network collapses into one entity. No synthetic
+  number here reflects that — including the 0.9958 cluster purity, which should be read as
+  "correct on data without superclusters", not as a real-world expectation. Found only by
+  running on Elliptic++; see `docs/external_validation.md` Track C.
 - **Attribution degrades with coverage and inverts below ~10%.** See the curve above.
 - **Our own fusion weights were wrong until the bulk run.** They were tuned at a 3.3%
   positive rate and lost 88% of PR-AUC at 0.39%. Any hyperparameter chosen on one base
