@@ -36,6 +36,7 @@ Run `make verify-all` to execute the machine-checkable subset in one pass.
 | # | PS wording | Implemented in | Verified by | Status |
 |---|---|---|---|---|
 | 13 | "synthetic dataset modelled on real Bitcoin P2P/transaction fields" | `generator/` (1,680 lines) | `make generate`; parameters documented in `docs/generator_parameters.md` | ✅ |
+| 13b | *beyond the PS* — the synthetic set is ours, so the chain-side detector is also validated on **real** labelled Bitcoin data | `eval/external.py` | `make validate-external` → illicit **F1 0.7595**, PR-AUC 0.8009 on 46,564 Elliptic transactions (train steps 1-34, test 35-49) vs Weber et al.'s published 0.79. Chain-side only — Elliptic has no IP layer | ✅ |
 | 14 | minimum fields incl. `geo_country/asn` | `generator/emit.py:FIELDS` | 14/14 present | ✅ |
 | 15 | "integrate open source downloadable Geo IP database" | `ingest/enrich.py` | **DB-IP Lite ASN, CC BY 4.0**, bundled at `data/geo/dbip-asn-lite.mmdb`; receipt reads `mmdb:dbip-asn-lite.mmdb+table:asn-blocks.csv` | ✅ |
 

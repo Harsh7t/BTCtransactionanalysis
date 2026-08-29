@@ -27,7 +27,37 @@ make validate-external
 ```
 
 Absent the files, the harness reports `available: false` with instructions. It never
-reports a score computed on nothing.
+reports a score computed on nothing. The CSVs are gitignored.
+
+## Result — measured 2026-08-29
+
+Artefact: `artifacts/v1/external_validation.json`. Reproduce with `make validate-external`.
+
+| | Ours | Weber et al. 2019 |
+|---|---|---|
+| Illicit F1 | **0.7595** | 0.79 |
+| PR-AUC | 0.8009 | not reported |
+| Precision | 0.7858 | — |
+| Recall | 0.7350 | — |
+| MCC | 0.7439 | — |
+
+46,564 labelled transactions, 9.76% illicit. Trained on time steps 1–34, tested on 35–49.
+
+Three things to say out loud about that number, because a reviewer will find them anyway:
+
+**The split is forward in time and cut on a step boundary.** Not a random split, and not a
+positional 70% cut — a positional cut lands *inside* a time step and puts contemporaneous
+transactions on both sides of a boundary whose entire purpose is to separate them in time.
+The test window therefore contains the step-43 dark-market shutdown, the regime where
+Weber et al. found performance degrades. This is the harder setup, not the flattering one.
+
+**`time_step` is both a feature and the split variable**, so the harness refits without it
+and records the outcome: PR-AUC 0.8026, F1 0.7518 — statistically indistinguishable. The
+score does not rest on the time index. That is measured, not asserted.
+
+**Splits and feature subsets differ from the published work**, so 0.7595 against 0.79 means
+"competitive with the published baseline", not "0.03 worse than it". Do not present it as a
+head-to-head.
 
 ## The claim this buys
 

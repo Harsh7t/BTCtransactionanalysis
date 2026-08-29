@@ -1,11 +1,32 @@
 {
-  "available": false,
-  "pr_auc": null,
-  "note": "Elliptic dataset not present. Download elliptic_txs_features.csv and elliptic_txs_classes.csv from the Elliptic Data Set on Kaggle into /Users/harshitsengar/Desktop/sih26/btc-fusion/data/external/elliptic/ and re-run `make validate-external`. Not committed for licence and size reasons.",
+  "available": true,
+  "n_nodes": 46564,
+  "n_labelled": 46564,
+  "positive_rate": 0.0976,
+  "n_train": 29894,
+  "n_test": 16670,
+  "pr_auc": 0.8009,
+  "precision": 0.7858,
+  "recall": 0.735,
+  "f1": 0.7595,
+  "mcc": 0.7439,
+  "train_steps": [
+    1,
+    34
+  ],
+  "test_steps": [
+    35,
+    49
+  ],
+  "without_time_step": {
+    "pr_auc": 0.8026,
+    "f1": 0.7518
+  },
   "published_reference": {
     "source": "Weber et al. 2019, Anti-Money Laundering in Bitcoin",
     "model": "Random Forest, all features",
     "illicit_f1": 0.79,
     "caveat": "Confirm from the paper before citing. Splits and feature subsets differ."
-  }
+  },
+  "note": "Chain-side detector only. Elliptic has no IP, port or timing layer, so it cannot exercise the network-chain correlation this project is built around - that half is validated on synthetic data whose parameters are documented in docs/generator_parameters.md. Split is temporally forward on Elliptic's own time_step, cut at a step boundary. The `without_time_step` block refits with the time index removed."
 }

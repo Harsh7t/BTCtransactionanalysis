@@ -88,15 +88,31 @@ def validate_elliptic(root: Path, seed: int = 20260826) -> dict:
     X, y, names = load_elliptic(root)
     # Temporal split on Elliptic's own time_step, mirroring the discipline used
     # on our synthetic data: predict later activity from earlier.
+    #
+    # The cut lands on a time_step BOUNDARY, not at an exact 70% row index. A
+    # positional cut splits one time step across train and test, putting
+    # contemporaneous transactions on both sides of a split whose entire
+    # purpose is to separate them in time.
     ts_col = names.index("time_step") if "time_step" in names else 0
-    order = np.argsort(X[:, ts_col])
-    cut = int(len(order) * 0.7)
-    tr, te = order[:cut], order[cut:]
+    steps = X[:, ts_col]
+    cut_step = float(np.quantile(np.unique(steps), 0.7))
+    tr = np.flatnonzero(steps < cut_step)
+    te = np.flatnonzero(steps >= cut_step)
 
     model = SupervisedDetector(seed=seed).fit(X[tr], y[tr], names, n_estimators=300)
     s = model.predict_proba(X[te])
     base = M.evaluate(y[te], s, 0.5)
     cls = M.classification_report_at(y[te], s, 0.5)
+
+    # time_step is both a feature and the split variable. Drop it and refit so
+    # that "the score does not rest on the time index" is an artefact rather
+    # than an assertion.
+    keep = [i for i in range(X.shape[1]) if i != ts_col]
+    m2 = SupervisedDetector(seed=seed).fit(
+        X[tr][:, keep], y[tr], [names[i] for i in keep], n_estimators=300)
+    s2 = m2.predict_proba(X[te][:, keep])
+    cls2 = M.classification_report_at(y[te], s2, 0.5)
+    ablation = {"pr_auc": M.evaluate(y[te], s2, 0.5)["pr_auc"], "f1": cls2["f1"]}
 
     return {
         "available": True,
@@ -107,10 +123,14 @@ def validate_elliptic(root: Path, seed: int = 20260826) -> dict:
         "pr_auc": base["pr_auc"],
         "precision": cls["precision"], "recall": cls["recall"], "f1": cls["f1"],
         "mcc": cls["mcc"],
+        "train_steps": [int(steps[tr].min()), int(steps[tr].max())],
+        "test_steps": [int(steps[te].min()), int(steps[te].max())],
+        "without_time_step": ablation,
         "published_reference": PUBLISHED_REFERENCE,
         "note": ("Chain-side detector only. Elliptic has no IP, port or timing layer, so "
                  "it cannot exercise the network-chain correlation this project is built "
                  "around - that half is validated on synthetic data whose parameters are "
                  "documented in docs/generator_parameters.md. Split is temporally forward "
-                 "on Elliptic's own time_step."),
+                 "on Elliptic's own time_step, cut at a step boundary. The "
+                 "`without_time_step` block refits with the time index removed."),
     }

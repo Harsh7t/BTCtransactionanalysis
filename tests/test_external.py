@@ -50,3 +50,21 @@ def test_validation_returns_real_metrics_on_the_fixture(tmp_path):
     assert got["available"] is True
     assert 0.0 <= got["pr_auc"] <= 1.0
     assert got["n_labelled"] > 0
+
+
+def test_temporal_split_does_not_share_a_time_step(tmp_path):
+    """The cut must land on a step boundary.
+
+    A positional 70% cut splits one time step across train and test, which is
+    exactly what a temporal split exists to prevent.
+    """
+    got = validate_elliptic(_fixture(tmp_path), seed=1)
+    assert got["train_steps"][1] < got["test_steps"][0]
+
+
+def test_ablation_refits_without_the_time_index(tmp_path):
+    """time_step is both a feature and the split variable, so the claim that the
+    score does not rest on it has to be measured, not asserted."""
+    got = validate_elliptic(_fixture(tmp_path), seed=1)
+    assert 0.0 <= got["without_time_step"]["pr_auc"] <= 1.0
+    assert 0.0 <= got["without_time_step"]["f1"] <= 1.0

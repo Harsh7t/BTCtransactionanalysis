@@ -91,6 +91,12 @@ def leak_test(capture: Path, truth_dir: Path, threshold: float = LEAK_THRESHOLD_
                    labels.get_column("illicit").to_list()))
     y = np.array([lab.get(e, 0) for e in prep.nodes], dtype=np.int8)
 
+    # Seeded split and seeded models, but the per-field lifts still move in the
+    # THIRD decimal between runs: the histogram builder reduces float sums across
+    # OpenMP threads, and the reduction order is not fixed. The verdict is stable
+    # (strict ~1.23 against a 1.30 gate); the digits are not.
+    # ponytail: OMP_NUM_THREADS=1 would pin them exactly, at several times the
+    # runtime. Not worth it for a gate that reads a ratio, not a decimal.
     rng = np.random.default_rng(int(cfg["seed"]))
     idx = rng.permutation(len(y))
     cut = int(len(idx) * 0.7)

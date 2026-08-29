@@ -13,3 +13,7 @@ data/case.duckdb
 data/train.duckdb
 ui/dist/
 wheels/
+
+# Real external datasets: not ours to redistribute, and large.
+# Elliptic (Kaggle, ellipticco/elliptic-data-set) - see docs/external_validation.md
+data/external/**/*.csv

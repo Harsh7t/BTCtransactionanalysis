@@ -283,6 +283,37 @@ false positives on `transient` wallets: legitimate short-lived pass-through wall
 structurally near-identical to laundering mules, and separating them needs counterparty
 reputation this system deliberately does not model.
 
+### Real labelled data — Elliptic (§16.4)
+
+Every figure above comes from a generator we wrote, which makes them self-referential. The
+Elliptic dataset (Weber et al. 2019) is real, public and hand-labelled, so it is the one
+number here that is not.
+
+| | Ours | Weber et al. 2019 |
+|---|---|---|
+| Illicit F1 | **0.7595** | 0.79 |
+| PR-AUC | 0.8009 | not reported |
+| Precision / Recall | 0.7858 / 0.7350 | — |
+| MCC | 0.7439 | — |
+
+46,564 labelled transactions at a 9.76% illicit rate. Trained on time steps 1-34, tested on
+35-49 — forward in time, cut on a **step boundary** rather than at a positional 70% index,
+because a positional cut splits a single time step across train and test. The test window
+therefore spans the step-43 dark-market shutdown, the regime Weber et al. identified as the
+hard one. `time_step` is both a feature and the split variable, so the harness refits
+without it: PR-AUC 0.8026, F1 0.7518 — indistinguishable, so the score does not rest on the
+time index.
+
+Splits and feature subsets differ from the published work, so read 0.7595 against 0.79 as
+*competitive with the published baseline*, not as a head-to-head deficit.
+
+**What this does not validate.** Elliptic has 166 anonymised, publisher-aggregated features
+and no network layer whatsoever — no IPs, no ports, no propagation timing. It exercises the
+chain-side detector alone. It cannot touch the network⇄chain correlation this project is
+built around. That division is the dual-track strategy in
+[`docs/external_validation.md`](external_validation.md), stated up front rather than
+discovered by a reviewer.
+
 ## 7. Limitations
 
 The section most teams omit and an NTRO reader will respect most.
@@ -308,10 +339,16 @@ The section most teams omit and an NTRO reader will respect most.
   randomised per-peer relay delay exists precisely to defeat first-relay inference
   (Koshy FC'14, Biryukov CCS'14; Dandelion++ BIP-156 proposed, never merged). We model the
   defence rather than ignoring it.
-- **No validation on real labelled data yet.** The Elliptic harness exists
-  (`make validate-external`) and reports `available: false` until the dataset is placed in
-  `data/external/elliptic/`. Chain-side parity with published baselines is therefore
-  claimed as *reproducible*, not as *achieved*.
+- **Only the chain half is validated on real data.** The Elliptic run
+  (`make validate-external`) reaches **illicit F1 0.7595, PR-AUC 0.8009** on 46,564 real
+  labelled transactions, trained on time steps 1-34 and tested on 35-49 - competitive with
+  Weber et al.'s published 0.79 under a different split. That validates the chain-side
+  detector and nothing else: Elliptic has no IP, port or timing layer, so the
+  network-chain correlation that is this project's actual thesis is still measured only
+  against a generator we wrote ourselves. Elliptic++ (Elmougy & Liu, KDD'23) would add a
+  real address graph and address-level labels, closing more of the chain-side gap - and
+  none of the network-side one. No public dataset closes that gap; it needs a real
+  multi-vantage-point listener deployment.
 
 ## 8. Reproduction
 

@@ -11,58 +11,58 @@
   "per_field": {
     "mean_feerate_sat_vb": {
       "pr_auc": 0.0967,
-      "lift": 1.158,
+      "lift": 1.159,
       "tier": "strict"
     },
     "ephemeral_linux_frac": {
-      "pr_auc": 0.0965,
-      "lift": 1.156,
+      "pr_auc": 0.0974,
+      "lift": 1.167,
       "tier": "strict"
     },
     "ephemeral_windows_frac": {
-      "pr_auc": 0.0979,
-      "lift": 1.172,
+      "pr_auc": 0.0992,
+      "lift": 1.189,
       "tier": "strict"
     },
     "round_number_frac": {
-      "pr_auc": 0.0835,
+      "pr_auc": 0.0834,
       "lift": 1.0,
       "tier": "strict"
     },
     "mean_fee_sat": {
-      "pr_auc": 0.1017,
-      "lift": 1.217,
+      "pr_auc": 0.1031,
+      "lift": 1.236,
       "tier": "informative"
     },
     "mean_value_out": {
-      "pr_auc": 0.118,
-      "lift": 1.413,
+      "pr_auc": 0.1201,
+      "lift": 1.44,
       "tier": "informative"
     },
     "std_value_out": {
-      "pr_auc": 0.094,
-      "lift": 1.125,
+      "pr_auc": 0.0944,
+      "lift": 1.132,
       "tier": "informative"
     },
     "total_out": {
-      "pr_auc": 0.1178,
-      "lift": 1.41,
+      "pr_auc": 0.1171,
+      "lift": 1.404,
       "tier": "informative"
     },
     "total_in": {
-      "pr_auc": 0.1104,
-      "lift": 1.322,
+      "pr_auc": 0.1118,
+      "lift": 1.34,
       "tier": "informative"
     }
   },
-  "informative_tier_pr_auc": 0.1907,
-  "informative_tier_lift": 2.283,
-  "leak_pr_auc": 0.1032,
-  "baseline_pr_auc": 0.0835,
-  "lift_over_baseline": 1.235,
+  "informative_tier_pr_auc": 0.1881,
+  "informative_tier_lift": 2.254,
+  "leak_pr_auc": 0.103,
+  "baseline_pr_auc": 0.0834,
+  "lift_over_baseline": 1.234,
   "threshold_ratio": 1.3,
-  "control_full_feature_pr_auc": 0.8414,
-  "control_lift": 10.074,
+  "control_full_feature_pr_auc": 0.8348,
+  "control_lift": 10.006,
   "n_train": 49336,
   "n_test": 21144,
   "interpretation": "The strict set should sit near 1.0x baseline while the full feature set sits far above it. The GAP between them is the evidence that detection comes from topology, timing and network structure rather than from an artefact of how the data was written.",
