@@ -390,8 +390,16 @@ The section most teams omit and an NTRO reader will respect most.
 
 ```bash
 make reproduce      # generate → leak-test → train → score, from a fixed seed
-make verify-all     # every check a judge could run
+make verify-all     # every check a judge could run, on the host
+make docker-build && make docker-verify   # the same, on Linux, with NO network
 ```
+
+`docker-verify` runs five steps under `--network none`: the test suite, which ML backend
+Linux resolves (LightGBM 3.3.5), an offline GeoIP lookup, the full pipeline on 564k rows,
+and a check that the container reproduces the host's model outputs bit-for-bit. That last
+step exists because the container installs scikit-learn 1.7.2 while the artefacts were
+pickled by 1.9.0; the scores match exactly today, and the check fails the build if a future
+re-vendor changes that.
 
 Three artefact files carry every number: `metrics.json`, `leak_test.json`,
 `manifest.json`. The manifest records the input's SHA-256 (`f090a003…`), the seed

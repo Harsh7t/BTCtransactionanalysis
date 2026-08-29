@@ -5,21 +5,25 @@
 # developer machine, instead of silently on the judging laptop.
 set -euo pipefail
 IMAGE="${1:-btc-fusion:0.3.0}"
+# Match the build platform explicitly rather than inheriting it: the image is
+# x86_64, and on an arm64 host an unpinned `docker run` is a silent emulation
+# decision we would rather state than discover.
+PLATFORM="${PLATFORM:-linux/amd64}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-echo "== 1/4 unit, property and golden tests, offline =="
-docker run --rm --network none "$IMAGE" \
+echo "== 1/5 unit, property and golden tests, offline =="
+docker run --rm --platform "$PLATFORM" --network none "$IMAGE" \
   python -m pytest tests/ -q -p no:warnings --ignore=tests/test_golden.py
 
-echo "== 2/4 which ML backend does LINUX actually resolve? =="
-docker run --rm --network none "$IMAGE" python -c "
+echo "== 2/5 which ML backend does LINUX actually resolve? =="
+docker run --rm --platform "$PLATFORM" --network none "$IMAGE" python -c "
 import lightgbm
 from btcfusion.detect.supervised import SupervisedDetector
 print('  lightgbm', lightgbm.__version__, '- OpenMP runtime loaded')
 print('  detector backend:', SupervisedDetector().backend)"
 
-echo "== 3/4 GeoIP resolves from the bundled database, offline =="
-docker run --rm --network none "$IMAGE" python -c "
+echo "== 3/5 GeoIP resolves from the bundled database, offline =="
+docker run --rm --platform "$PLATFORM" --network none "$IMAGE" python -c "
 import ipaddress, numpy as np
 from pathlib import Path
 from btcfusion.ingest.enrich import GeoIP
@@ -30,11 +34,31 @@ print('  source:', g.source)
 print('  8.8.8.8 ->', 'AS%d' % out['asn'][0], out['country'][0])
 assert out['asn'][0] != 0, 'bundled GeoIP failed to resolve offline'"
 
-echo "== 4/4 full pipeline end to end, offline =="
-docker run --rm --network none -v "$ROOT/data/samples:/app/data/samples:ro" \
+echo "== 4/5 full pipeline end to end, offline =="
+docker run --rm --platform "$PLATFORM" --network none -v "$ROOT/data/samples:/app/data/samples:ro" \
   -v "$ROOT/data/geo:/app/data/geo:ro" "$IMAGE" \
   python -m btcfusion.cli run data/samples/capture.csv --artifacts artifacts/v1 \
   | tail -24
+
+echo "== 5/5 does the container REPRODUCE the host's model outputs? =="
+# The container installs sklearn 1.7.2; the artefacts were pickled by 1.9.0, and
+# scikit-learn warns that unpickling across versions may give invalid results. It
+# does not here - but that is a fact about two versions, not a guarantee, and
+# vendor_wheels.sh pins none. So we check rather than assume.
+GOLDEN="$(cat "$ROOT/tests/golden/score_fingerprint.txt")"
+GOT="$(docker run --rm --platform "$PLATFORM" --network none \
+  -v "$ROOT/scripts/score_fingerprint.py:/app/score_fingerprint.py:ro" \
+  "$IMAGE" python -W ignore score_fingerprint.py)"
+if [ "$GOT" = "$GOLDEN" ]; then
+  echo "  identical to the host: ${GOT:0:16}…"
+else
+  echo "  MISMATCH - the container scores differently from the host."
+  echo "    host:      $GOLDEN"
+  echo "    container: $GOT"
+  echo "  The shipped artefacts and the container's library versions have diverged."
+  echo "  Retrain inside the container, or pin versions in scripts/vendor_wheels.sh."
+  exit 1
+fi
 
 echo ""
 echo "OFFLINE VERIFICATION PASSED - everything above ran with --network none."

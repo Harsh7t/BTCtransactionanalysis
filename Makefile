@@ -88,8 +88,15 @@ print('wrote tests/golden/feature_matrix.json')"
 wheels:           ## vendor Linux wheels for a fully offline image build
 	./scripts/vendor_wheels.sh
 
+# --platform is NOT optional. The vendored wheels are manylinux x86_64, and on an
+# Apple Silicon host Docker defaults to an arm64 base image, where `pip --no-index`
+# finds no matching numpy and the build dies at the install step. Pinning amd64 also
+# matches the actual deployment target. On arm64 hosts this runs under emulation and
+# is slow; that is the correct trade for an artefact that must run on a judge's x86 box.
+PLATFORM ?= linux/amd64
+
 docker-build:     ## build the container (run `make wheels` first)
-	docker build -t btc-fusion:0.3.0 .
+	docker build --platform $(PLATFORM) -t btc-fusion:0.3.0 .
 
 docker-verify:    ## run the full pipeline inside the container with NO network
 	./scripts/verify_offline.sh btc-fusion:0.3.0

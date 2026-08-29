@@ -45,29 +45,37 @@ Run `make verify-all` to execute the machine-checkable subset in one pass.
 
 | # | PS wording | Implemented in | Verified by | Status |
 |---|---|---|---|---|
-| 16 | "Workable complete offline solution for **linux platform**" | `Dockerfile`, `wheels/` | 62 Linux wheels vendored, no network fallback in the image; `make docker-verify` | ⚠ **build not yet executed — see below** |
+| 16 | "Workable complete offline solution for **linux platform**" | `Dockerfile`, `wheels/` | **executed**: `make docker-build && make docker-verify` → 5/5 steps pass under `--network none` on linux/amd64. 81 tests, LightGBM 3.3.5 resolved, GeoIP offline, full pipeline on 564k rows, and container scores bit-identical to the host | ✅ |
 | 17 | "Working prototype (**code repo**) with ingestion, correlation, and AI/ML model" | git repo, 75 tests | `make test` → 75 passed | ✅ |
 | 18 | "Short technical write-up: approach, model choice, and explainability method" | `docs/technical_writeup.md` | §2 approach, §4 model choice, §5 explainability | ✅ |
 | 19 | "Dashboard/visualization showing flagged entities **and evidence for each flag**" | `ui/src/components/CaseFile.tsx` | evidence chain with real TXIDs, SHAP, graph, timeline, attribution | ✅ |
 
-## Outstanding
+## Requirement 16 — what running it actually found
 
-**Requirement 16 — Linux verification.** All the machinery exists: `wheels/` holds 62
-manylinux wheels, the Dockerfile installs `--no-index` with **no network fallback** (a
-missing wheel fails the build loudly rather than silently reaching out), and
-`scripts/verify_offline.sh` runs the tests, the GeoIP lookup and the full pipeline under
-`--network none`.
+The machinery had existed for days and was described as ready. It was not: the build
+failed the first time it was ever run, for two reasons, and both are the kind that only a
+real execution exposes.
 
-It has **not been executed**: the Docker daemon would not start on the development
-machine. To close this row:
+**No `.dockerignore`.** The Dockerfile `COPY`s only what it needs, but Docker sends the
+whole context to the daemon first — 4.6 GB of datasets, a host virtualenv and two
+`node_modules` trees. Now 351 MB, nearly all of it the wheels that are actually installed.
 
-```bash
-open -a Docker          # wait for the whale icon to settle
-make docker-build
-make docker-verify
-```
+**No platform pin.** The vendored wheels are manylinux **x86_64**; on an Apple Silicon host
+Docker defaults to an **arm64** base image, so `pip --no-index` found no matching numpy and
+the build died at the install step. `PLATFORM ?= linux/amd64` is now pinned in the Makefile
+and in `verify_offline.sh`, which also matches the real deployment target.
 
-`docker-verify` also reports which ML backend Linux resolves — expected `lightgbm` there,
-versus the scikit-learn HistGradientBoosting fallback on macOS hosts without `libomp`.
-Artefacts trained on macOS record `sklearn_histgb` in the manifest; retrain inside the
-container to ship LightGBM-backed artefacts.
+**A third thing the run surfaced, which is now a permanent check.** The container installs
+scikit-learn 1.7.2 while the shipped artefacts were pickled by 1.9.0, and scikit-learn warns
+that unpickling across versions "might lead to breaking code or invalid results". We
+measured it: the scores are bit-identical, SHA-256
+`5eeb9d3f…`. But that is a fact about two specific versions, not a property of the design,
+and `vendor_wheels.sh` pins no versions at all — so the next re-vendor could land on a
+release where it is no longer true, silently. Step 5/5 of the offline verification now
+reproduces the host fingerprint inside the container and **fails the build** if it drifts.
+
+Note that a fresh detector inside the container resolves **LightGBM**, while the shipped
+artefacts record `sklearn_histgb` because they were trained on a macOS host without
+`libomp`. Both are true and the manifest records which produced every number. To ship
+LightGBM-backed artefacts, retrain inside the container.
+
