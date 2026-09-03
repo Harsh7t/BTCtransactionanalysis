@@ -10,6 +10,8 @@
  *  is mostly seeing relays rather than origins and confidently picks wrong.
  *  That crossing point is a real limit of the method and is left visible.
  */
+import { drawOnMount } from '../ui';
+
 type Row = {
   coverage: number; top1_accuracy: number; top3_accuracy: number;
   mrr: number; random_choice_baseline: number;
@@ -31,11 +33,11 @@ export function SensitivityCurve({ rows }: { rows: Row[] }) {
           <line key={g} x1={P} y1={sy(g)} x2={W - 12} y2={sy(g)}
                 stroke="var(--rule-soft)" strokeWidth={1} />
         ))}
-        <polyline fill="none" stroke="var(--data)" strokeWidth={1.4}
+        <polyline ref={drawOnMount(120)} fill="none" stroke="var(--data)" strokeWidth={1.4}
                   strokeDasharray="3 3" points={line('random_choice_baseline')} />
-        <polyline fill="none" stroke="var(--chain)" strokeWidth={1.6}
+        <polyline ref={drawOnMount(260)} fill="none" stroke="var(--chain)" strokeWidth={1.6}
                   strokeDasharray="5 3" points={line('top3_accuracy')} />
-        <polyline fill="none" stroke="var(--network)" strokeWidth={2.4}
+        <polyline ref={drawOnMount(400)} fill="none" stroke="var(--network)" strokeWidth={2.4}
                   points={line('top1_accuracy')} />
         {rows.map((r, i) => (
           <circle key={i} cx={sx(r.coverage)} cy={sy(r.top1_accuracy)} r={3}

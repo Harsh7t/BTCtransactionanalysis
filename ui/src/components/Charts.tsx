@@ -8,6 +8,11 @@
  * Colour never carries meaning alone (WCAG 1.4.1): every series is also
  * distinguished by position, label, or shape, and each chart has a text summary.
  */
+/* CHART TYPE NOTE: font sizes here are SVG user units inside a viewBox that is
+   scaled to its container (measured 1.43x-2.09x), so the rendered size is the
+   number below times that factor. They were 9, which rendered at 13-19px -
+   larger than the 13px body text. Keep these small. */
+import { drawOnMount } from '../ui';
 import type { TxRow } from '../api';
 
 /** Hour-of-day activity. The bar that peaks tells you when someone works. */
@@ -113,7 +118,7 @@ export function ReliabilityCurve({ points, ece }:
         {/* perfect calibration */}
         <line x1={sx(0)} y1={sy(0)} x2={sx(1)} y2={sy(1)}
               stroke="var(--rule)" strokeWidth={1.2} strokeDasharray="4 3" />
-        <polyline fill="none" stroke="var(--fusion)" strokeWidth={2.2}
+        <polyline ref={drawOnMount(120)} fill="none" stroke="var(--fusion)" strokeWidth={2.2}
                   points={points.map((p) => `${sx(p.predicted)},${sy(p.observed)}`).join(' ')} />
         {points.map((p, i) => (
           <circle key={i} cx={sx(p.predicted)} cy={sy(p.observed)} r={3} fill="var(--fusion)">
@@ -122,10 +127,12 @@ export function ReliabilityCurve({ points, ece }:
         ))}
         <line x1={P} y1={H - P} x2={W - 8} y2={H - P} stroke="var(--ink-soft)" strokeWidth={1} />
         <line x1={P} y1={12} x2={P} y2={H - P} stroke="var(--ink-soft)" strokeWidth={1} />
-        <text x={P} y={H - 10} className="mono" fontSize="9" fill="var(--ink-dim)">0</text>
-        <text x={W - 20} y={H - 10} className="mono" fontSize="9" fill="var(--ink-dim)">1</text>
-        <text x={P + 40} y={H - 10} className="mono" fontSize="9" fill="var(--ink-dim)">predicted →</text>
-        <text x={6} y={20} className="mono" fontSize="9" fill="var(--ink-dim)">observed</text>
+        <text x={P} y={H - 10} className="mono" fontSize="6.5" fill="var(--ink-dim)">0</text>
+        <text x={W - 20} y={H - 10} className="mono" fontSize="6.5" fill="var(--ink-dim)">1</text>
+        <text x={P + 40} y={H - 10} className="mono" fontSize="6.5" fill="var(--ink-dim)">predicted →</text>
+        {/* Was x=6: the y-axis sits at user-x 24, so this label ran straight
+            through the axis rule at every width tested. */}
+        <text x={30} y={13} className="mono" fontSize="7" fill="var(--ink-dim)">observed</text>
       </svg>
       <div className="mono text-2xs text-ink-dim">
         dashed = perfect calibration · solid = measured ·{' '}

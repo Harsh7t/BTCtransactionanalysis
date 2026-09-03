@@ -1,9 +1,13 @@
 /** Shared primitives.
  *
  * Every one of these is deliberately flat: hairline border, square corner, no
- * shadow. Panels sit ON the paper, they do not float above it. That restraint is
- * what makes a tool read as an instrument rather than as a web page.
+ * shadow. Panels sit ON the paper, they do not float above it.
+ *
+ * Restraint alone is not design, though - it was flat AND uniform, 30 panels in
+ * one treatment with no focal point on any screen. The dial that fixes that is
+ * `weight` on Panel, not more borders.
  */
+import { useEffect, useState } from 'react';
 import type { ReactNode, CSSProperties } from 'react';
 
 export type Layer = 'chain' | 'network' | 'fusion' | 'confirm' | 'data' | 'danger';
@@ -33,43 +37,69 @@ export function Eyebrow({ children, layer, right }:
   );
 }
 
-/** A bordered region. `accent` draws the plate's 4px left rule. */
-export function Panel({ children, accent, className = '', pad = true, style }: {
-  children: ReactNode; accent?: Layer; className?: string; pad?: boolean;
-  style?: CSSProperties;
+/** A bordered region.
+ *
+ * `accent` NAMES the evidence layer this panel belongs to. It used to do that
+ * with a 4px coloured left rule and nothing else, which fails twice: it is the
+ * only 4px border in the app (so it reads as decoration), and the layer was
+ * carried by hue alone - invisible in greyscale, on a projector, or to a
+ * colour-blind reader. The rule is now 2px and the layer is also spelled out in
+ * words, so the information survives without the colour.
+ *
+ * `weight` is the compositional dial: exactly one `primary` per screen.
+ */
+export function Panel({ children, accent, weight = 'standard', className = '', pad = true, style }: {
+  children: ReactNode; accent?: Layer; weight?: 'primary' | 'standard' | 'sub';
+  className?: string; pad?: boolean; style?: CSSProperties;
 }) {
+  const frame = weight === 'primary' ? 'panel-primary'
+    : weight === 'sub' ? 'panel-sub'
+    : 'bg-surface border border-rule';
   return (
     <section
-      className={`bg-surface border border-rule ${pad ? 'p-3.5' : ''} ${className}`}
-      style={{ ...(accent ? { borderLeft: `4px solid ${LAYER_VAR[accent]}` } : {}), ...style }}
+      className={`${frame} ${pad ? 'p-3.5' : ''} ${className}`}
+      style={{ ...(accent ? { borderLeft: `2px solid ${LAYER_VAR[accent]}` } : {}), ...style }}
     >
+      {accent ? (
+        <span className="colhead block mb-1.5" style={{ color: LAYER_VAR[accent] }}>
+          {accent} layer
+        </span>
+      ) : null}
       {children}
     </section>
   );
 }
 
 /** Inline metric: label above, figure below. Used across the receipt strip. */
-export function Stat({ label, value, sub, layer, mono = true }: {
+export function Stat({ label, value, sub, layer, mono = true, size = 'md' }: {
   label: string; value: ReactNode; sub?: ReactNode; layer?: Layer; mono?: boolean;
+  size?: 'md' | 'lead';
 }) {
   return (
     <div className="min-w-0">
-      <div className="eyebrow truncate">{label}</div>
+      <div className="colhead truncate mb-0.5">{label}</div>
       <div
-        className={`${mono ? 'mono' : 'font-cond'} text-md font-semibold leading-tight truncate`}
+        className={size === 'lead'
+          ? 'figure truncate'
+          : `${mono ? 'mono' : 'font-cond'} text-md font-semibold leading-tight truncate`}
         style={layer ? { color: LAYER_VAR[layer] } : undefined}
       >
         {value}
       </div>
-      {sub ? <div className="text-2xs text-ink-dim truncate mono">{sub}</div> : null}
+      {sub ? <div className="text-2xs text-ink-dim truncate">{sub}</div> : null}
     </div>
   );
 }
 
-/** Horizontal magnitude bar. The one place a filled rectangle means a number. */
-export function Bar({ value, max = 1, layer = 'fusion', width = 150, height = 8, negative }: {
+/** Horizontal magnitude bar. The one place a filled rectangle means a number.
+ *
+ * `delay` staggers a column of bars so they read as a set arriving in order
+ * rather than as one block appearing. The growth is the point: a bar that grows
+ * to its length shows a value being measured, which is the only kind of motion
+ * this interface has any business doing. */
+export function Bar({ value, max = 1, layer = 'fusion', width = 150, height = 8, negative, delay = 0 }: {
   value: number; max?: number; layer?: Layer; width?: number | '100%'; height?: number;
-  negative?: boolean;
+  negative?: boolean; delay?: number;
 }) {
   const pct = Math.max(0, Math.min(1, Math.abs(value) / (max || 1)));
   return (
@@ -80,11 +110,65 @@ export function Bar({ value, max = 1, layer = 'fusion', width = 150, height = 8,
       aria-label={`${value.toFixed(3)} of ${max}`}
     >
       <span
-        className="block h-full"
-        style={{ width: `${pct * 100}%`, background: negative ? 'var(--data)' : LAYER_VAR[layer] }}
+        className="block h-full anim-bar"
+        style={{
+          width: `${pct * 100}%`,
+          background: negative ? 'var(--data)' : LAYER_VAR[layer],
+          animationDelay: `${delay}ms`,
+        }}
       />
     </span>
   );
+}
+
+/** Ref callback that makes an SVG polyline or path draw itself on mount.
+ *
+ * Sets --len from the element's own measured length, so the dash animation is
+ * exact for any geometry rather than a guessed constant. A curve that draws is
+ * the one piece of motion this product genuinely earns: it is what an
+ * instrument does when it plots a trace. */
+export function drawOnMount(delay = 0) {
+  return (el: SVGGeometryElement | null) => {
+    if (!el) return;
+    const len = el.getTotalLength?.();
+    if (!len) return;
+    el.style.setProperty('--len', String(len));
+    el.style.animationDelay = `${delay}ms`;
+    el.classList.add('anim-draw');
+  };
+}
+
+/** A number that counts up to its value on mount.
+ *
+ * Only for the one or two headline figures on a screen. A page where every digit
+ * animates is a slot machine, not an instrument. */
+export function Counter({ value, decimals = 0, format, className = '', duration = 700 }: {
+  value: number; decimals?: number; format?: (n: number) => string;
+  className?: string; duration?: number;
+}) {
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setShown(value); return; }
+    let raf = 0;
+    const t0 = performance.now();
+    const tick = (t: number) => {
+      const k = Math.min(1, (t - t0) / duration);
+      // Same exponential ease-out as the CSS, so counters and bars settle together.
+      setShown(value * (1 - Math.pow(1 - k, 4)));
+      if (k < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    // GUARANTEE THE FINAL VALUE. requestAnimationFrame is suspended while the tab
+    // is hidden, so a counter started just before a tab switch strands partway -
+    // observed live at 0.004 for a metric whose real value is 0.0245. A number
+    // frozen at 15% of the truth is not a cosmetic bug in a forensics tool, it is
+    // a false figure on screen. Timers are throttled in background tabs but they
+    // still fire, so this always lands.
+    const settle = setTimeout(() => setShown(value), duration + 80);
+    return () => { cancelAnimationFrame(raf); clearTimeout(settle); };
+  }, [value, duration]);
+  const text = format ? format(shown) : shown.toFixed(decimals);
+  return <span className={className}>{text}</span>;
 }
 
 /** Small square-cornered tag. Never used decoratively — always carries a fact. */
@@ -146,7 +230,7 @@ export function Chip({ active, onClick, children, layer = 'fusion' }: {
 export function Notice({ title, children, layer = 'data' }:
   { title: string; children?: ReactNode; layer?: Layer }) {
   return (
-    <div className="border border-rule bg-surface-2 p-4" style={{ borderLeft: `4px solid ${LAYER_VAR[layer]}` }}>
+    <div className="border border-rule bg-surface-2 p-4" style={{ borderLeft: `2px solid ${LAYER_VAR[layer]}` }}>
       <div className="font-cond font-semibold uppercase text-md tracking-tight">{title}</div>
       {children ? <div className="text-sm text-ink-soft mt-1 max-w-[70ch]">{children}</div> : null}
     </div>

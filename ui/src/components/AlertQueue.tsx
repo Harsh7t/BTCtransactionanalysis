@@ -11,26 +11,27 @@
  *   and what lowering it would cost in precision. The queue is a decision with
  *   a trade-off attached, not a list.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, fmt, type Alert, type Receipt, type TxRow } from '../api';
-import { Bar, Button, Chip, Eyebrow, IconFilter, Notice, Panel, Spinner, Stat, Tag } from '../ui';
+import { Bar, Button, Chip, Counter, Eyebrow, IconFilter, Notice, Panel, Spinner, Stat, Tag } from '../ui';
 
 const TYPOLOGIES = ['peel_chain', 'fan_out_in', 'rapid_layering',
   'mixer_passthrough', 'dormancy_burst', 'cross_asn_structuring'];
-
-// Confidence is the model's output, so the bar carries the `fusion` layer colour.
-// This was a three-tier ternary whose first two branches both returned 'fusion' -
-// a scale that was specified and never implemented. Scores in this queue span
-// 0.961-0.999, so a magnitude ramp would encode nothing regardless.
-const CONF_LAYER = 'fusion' as const;
 
 export function IngestReceipt({ r }: { r: Receipt }) {
   const q = r.rows_quarantined ?? 0;
   return (
     <Panel pad={false} className="mb-3">
-      <div className="flex flex-wrap items-start gap-x-7 gap-y-3 px-3.5 py-3">
-        <Stat label="records ingested" value={fmt.int(r.rows_read)}
+      <div className="flex flex-wrap items-end gap-x-7 gap-y-3 px-3.5 py-3">
+        {/* The headline claim of the whole demo, finally set at headline size.
+            Six equal-weight stats gave the eye nowhere to land: the largest
+            element on this screen used to be the 16px wordmark. */}
+        <Stat label="records ingested" size="lead"
+              value={<Counter value={r.rows_read} format={(n) => fmt.int(Math.round(n))} />}
               sub={`${r.format.toUpperCase()} · ${r.file}`} />
+        <Stat label="elapsed" size="lead" layer="confirm"
+              value={<><Counter value={r.duration_s} decimals={2} duration={900} />s</>}
+              sub={`${fmt.int(r.rows_per_second)} rows/s`} />
         <Stat label="quarantined" value={fmt.int(q)} layer={q > 0 ? 'danger' : undefined}
               sub={q > 0 ? Object.keys(r.quarantine_breakdown).join(', ') : 'no rows rejected'} />
         <Stat label="duplicates" value={fmt.int(r.duplicates_removed)}
@@ -39,8 +40,6 @@ export function IngestReceipt({ r }: { r: Receipt }) {
               sub={`${fmt.int(r.n_entities_active)} with activity`} />
         <Stat label="transactions" value={fmt.int(r.n_transactions)}
               sub={`${fmt.int(r.n_graph_edges)} graph edges`} />
-        <Stat label="elapsed" value={`${r.duration_s}s`} layer="confirm"
-              sub={`${fmt.int(r.rows_per_second)} rows/s`} />
         <div className="ml-auto flex items-center gap-2">
           {r.chain_only_mode
             ? <Tag layer="danger" title="No usable src_ip column in this capture">chain-only mode</Tag>
@@ -52,12 +51,19 @@ export function IngestReceipt({ r }: { r: Receipt }) {
       </div>
       {/* Stage timings, inline. "500k records, 15 seconds" is a claim judges repeat. */}
       <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-rule-soft bg-surface-2 px-3.5 py-1.5">
-        <span className="eyebrow">stage timings</span>
-        {Object.entries(r.timings || {}).map(([k, v]) => (
-          <span key={k} className="mono text-2xs text-ink-soft">
-            {k} <span className="text-ink font-semibold">{v}s</span>
-          </span>
-        ))}
+        <span className="colhead">stage timings</span>
+        {(() => {
+          const t = Object.entries(r.timings || {});
+          const slowest = t.reduce((a, b) => (b[1] > a[1] ? b : a), t[0] || ['', 0])[0];
+          return t.map(([k, v]) => (
+            <span key={k} className={`text-2xs ${k === slowest ? 'text-ink' : 'text-ink-soft'}`}>
+              {k}{' '}
+              <span className={`mono font-semibold ${k === slowest ? 'text-fusion' : 'text-ink'}`}>
+                {v}s
+              </span>
+            </span>
+          ));
+        })()}
       </div>
     </Panel>
   );
@@ -73,6 +79,8 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
   const [asnType, setAsnType] = useState<string>('');
   const [unreviewed, setUnreviewed] = useState(false);
   const [showSuppressed, setShowSuppressed] = useState(false);
+  const [query, setQuery] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
   // The PS asks why a wallet OR a transaction was flagged. Entities are the
   // investigative unit and stay the default; transactions are one click away.
   const [level, setLevel] = useState<'entities' | 'transactions'>('entities');
@@ -94,12 +102,33 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
     return () => { live = false; };
   }, []);
 
-  const visible = useMemo(() => alerts.filter((a) =>
-    (showSuppressed || a.confidence >= threshold)
-    && (!typology || a.typologies.includes(typology))
-    && (!asnType || a.top_asn_type === asnType)
-    && (!unreviewed || !a.verdict)
-  ), [alerts, threshold, typology, asnType, unreviewed, showSuppressed]);
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return alerts.filter((a) =>
+      (showSuppressed || a.confidence >= threshold)
+      && (!typology || a.typologies.includes(typology))
+      && (!asnType || a.top_asn_type === asnType)
+      && (!unreviewed || !a.verdict)
+      && (!q || a.entity.toLowerCase().includes(q))
+    );
+  }, [alerts, threshold, typology, asnType, unreviewed, showSuppressed, query]);
+
+  // `/` focuses search, Escape clears it. Analysts in this genre live on the
+  // keyboard; the queue previously had no shortcut of any kind.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (e.key === '/' && tag !== 'INPUT' && tag !== 'TEXTAREA') {
+        e.preventDefault();
+        searchRef.current?.focus();
+      } else if (e.key === 'Escape' && document.activeElement === searchRef.current) {
+        setQuery('');
+        searchRef.current?.blur();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   useEffect(() => {
     if (level !== 'transactions') return;
@@ -185,9 +214,34 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
           )}
         </Panel>
       ) : (<>
+      {/* --- heading + search ---------------------------------------------- */}
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2 mb-3">
+        <h1 className="display text-ink">alert queue</h1>
+        <span className="text-sm text-ink-soft">
+          <span className="mono font-semibold text-ink">{visible.length}</span> leads ranked by the classifier
+        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <input
+            ref={searchRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="find entity…  /"
+            aria-label="Search by entity ID"
+            className="h-7 w-52 bg-surface border border-rule px-2 mono text-sm
+                       placeholder:text-ink-dim focus:border-ink outline-none"
+          />
+          {query ? (
+            <button onClick={() => { setQuery(''); searchRef.current?.focus(); }}
+                    className="h-7 px-2 text-2xs text-ink-soft border border-rule hover:border-ink">
+              clear
+            </button>
+          ) : null}
+        </div>
+      </div>
+
       {/* --- filters ------------------------------------------------------- */}
       <div className="flex flex-wrap items-center gap-2 mb-2.5">
-        <span className="eyebrow flex items-center gap-1.5"><IconFilter className="w-3 h-3" />filters</span>
+        <span className="colhead flex items-center gap-1.5"><IconFilter className="w-3 h-3" />filters</span>
         <Chip active={!typology} onClick={() => setTypology('')}>all typologies</Chip>
         {TYPOLOGIES.map((t) => (
           <Chip key={t} active={typology === t} onClick={() => setTypology(typology === t ? '' : t)}>
@@ -204,13 +258,16 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
         </Chip>
 
         {/* Live threshold with the trade-off stated, not implied. */}
-        <div className="ml-auto flex items-center gap-2.5">
-          <label htmlFor="thr" className="eyebrow">confidence threshold</label>
+        {/* `ml-auto` alone pinned this group to the right of a wrapping row, so
+            on a narrow viewport it was pushed past the edge instead of wrapping
+            under. `w-full` at mobile gives it its own line. */}
+        <div className="w-full lg:w-auto lg:ml-auto flex items-center gap-2.5">
+          <label htmlFor="thr" className="colhead">confidence threshold</label>
           <input id="thr" type="range" min={0.05} max={0.95} step={0.05} value={threshold}
                  className="w-40"
                  onChange={(e) => setThreshold(Number(e.target.value))} />
           <span className="mono text-md font-semibold w-9 text-fusion">{threshold.toFixed(2)}</span>
-          <span className="mono text-2xs text-ink-dim w-28">
+          <span className="text-2xs text-ink-dim w-28 shrink-0">
             {visible.length} shown · {suppressed} below
           </span>
         </div>
@@ -218,13 +275,16 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
 
       {/* --- queue --------------------------------------------------------- */}
       <Panel pad={false}>
-        <div className="overflow-x-auto">
+        {/* The table needs 62rem. Below that it scrolls - which it always did,
+            but silently: 65% of the columns were unreachable on a phone with no
+            indication they existed. */}
+        <div className="overflow-x-auto scroll-hint">
         <table className="w-full border-collapse min-w-[62rem]">
           <thead>
             <tr className="border-b border-rule">
               {['#', 'entity', 'typology', 'confidence', 'attribution', 'value moved', ''].map((h, i) => (
                 <th key={h + i}
-                    className={`eyebrow px-3 py-2 ${i === 5 ? 'text-right' : 'text-left'} ${i === 3 ? 'w-56' : ''}`}>
+                    className={`colhead px-3 py-2 ${i === 5 ? 'text-right' : 'text-left'} ${i === 3 ? 'w-56' : ''}`}>
                   {h}
                 </th>
               ))}
@@ -239,18 +299,23 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
                     onClick={() => onOpen(a.entity)}
                     tabIndex={0}
                     onKeyDown={(e) => { if (e.key === 'Enter') onOpen(a.entity); }}
-                    className={`border-b border-rule-soft cursor-pointer transition-colors duration-150
-                      hover:bg-fusion-wash ${below ? 'opacity-55' : ''}`}>
-                  <td className="px-3 py-2.5 align-top">
-                    <span className="mono text-md font-semibold">{a.rank}</span>
+                    style={{ animationDelay: `${Math.min(a.rank, 14) * 18}ms` }}
+                    className={`anim-rise border-b border-rule-soft cursor-pointer transition-colors duration-150
+                      hover:bg-active-wash ${below ? 'opacity-55' : ''}
+                      ${a.rank <= 3 ? 'bg-surface' : ''}`}>
+                  <td className="px-3 py-1.5 align-top">
+                    {/* Rank 1 and rank 60 used to be typographically identical. */}
+                    <span className={a.rank <= 3
+                      ? 'mono text-lg font-semibold text-ink'
+                      : 'mono text-sm text-ink-dim'}>{a.rank}</span>
                   </td>
-                  <td className="px-3 py-2.5 align-top">
+                  <td className="px-3 py-1.5 align-top">
                     <div className="mono text-md font-semibold text-ink whitespace-nowrap">{a.entity}</div>
                     <div className="mono text-2xs text-ink-dim whitespace-nowrap">
                       {fmt.int(a.n_addresses)} addr · {fmt.int(a.n_tx)} tx · {fmt.int(a.n_ips)} IP
                     </div>
                   </td>
-                  <td className="px-3 py-2.5 align-top max-w-[16rem]">
+                  <td className="px-3 py-1.5 align-top max-w-[16rem]">
                     {a.raised_by === 'novelty' ? (
                       <Tag layer="network"
                            title="The classifier ranked this low; the novelty detector ranked it high. Reserved-slot alert - the answer to typologies nobody labelled.">
@@ -261,43 +326,74 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
                         {typs.map((t) => <Tag key={t} layer="fusion">{fmt.typology(t)}</Tag>)}
                       </div>
                     ) : (
-                      <Tag layer="data">no rule matched</Tag>
+                      /* "no rule matched" read as a failure on ranks 1 and 2 -
+                         the two highest-scoring entities in the queue. The model
+                         ranked them top without a named pattern, which is the
+                         system working, not failing. Say that. */
+                      <Tag layer="data"
+                           title="The classifier scored this highly on learned behaviour, but none of the six named laundering typologies matched. Open the case file for the SHAP reasons.">
+                        model-only · no named typology
+                      </Tag>
                     )}
                   </td>
-                  <td className="px-3 py-2.5 align-top">
-                    <div className="flex items-center gap-2">
-                      <Bar value={a.confidence} layer={CONF_LAYER} width={120} height={9} />
+                  <td className="px-3 py-1.5 align-top">
+                    {/* A magnitude bar over a constant is noise. Scores across this
+                        whole queue span 0.961-0.999, so 56 of 60 bars were pixel
+                        identical and the column carried no information at all.
+                        What DOES vary is the decomposition - novelty runs
+                        0.48-1.00 - so the bar now shows that instead. */}
+                    <div className="flex items-baseline gap-2">
                       <span className="mono text-md font-semibold">{fmt.conf(a.confidence)}</span>
+                      <span className="text-2xs text-ink-dim">±{fmt.conf(a.interval)}</span>
                     </div>
-                    <div className="mono text-2xs text-ink-dim">
-                      <span className="whitespace-nowrap">±{fmt.conf(a.interval)} · sup {fmt.conf(a.supervised)} · nov {fmt.conf(a.novelty)}</span>
+                    <div className="flex items-center gap-1.5 mt-1"
+                         title={`supervised ${fmt.conf(a.supervised)} · novelty ${fmt.conf(a.novelty)}`}>
+                      <span className="colhead" style={{ letterSpacing: '.04em' }}>sup</span>
+                      <Bar value={a.supervised} layer="fusion" width={44} height={6}
+                           delay={Math.min(a.rank, 14) * 18} />
+                      <span className="colhead" style={{ letterSpacing: '.04em' }}>nov</span>
+                      <Bar value={a.novelty} layer="network" width={44} height={6}
+                           delay={Math.min(a.rank, 14) * 18 + 60} />
                     </div>
                   </td>
-                  <td className="px-3 py-2.5 align-top">
+                  <td className="px-3 py-1.5 align-top">
                     {a.attribution_status === 'ok' && a.top_asn ? (
                       <>
-                        <div className="mono text-sm text-network whitespace-nowrap">
-                          AS{a.top_asn} · {a.top_asn_type}
-                        </div>
-                        <div className="mono text-2xs text-ink-dim">
-                          {a.top_country} · conf {fmt.conf(a.attribution_confidence)}
+                        {/* 4 rows in 60. This is the product's entire thesis
+                            landing, and it used to be styled identically to the
+                            54 rows where attribution failed. */}
+                        <div className="inline-flex flex-col border-l-2 pl-2"
+                             style={{ borderColor: 'var(--network)' }}>
+                          <span className="mono text-md font-semibold text-network whitespace-nowrap">
+                            AS{a.top_asn}
+                          </span>
+                          <span className="text-2xs text-ink-soft whitespace-nowrap">
+                            {a.top_asn_type} · {a.top_country} · conf{' '}
+                            <span className="mono">{fmt.conf(a.attribution_confidence)}</span>
+                          </span>
                         </div>
                       </>
                     ) : (
-                      <div className="mono text-2xs text-ink-dim">
-                        {a.attribution_status === 'suppressed'
-                          ? 'suppressed — shared infra'
-                          : a.attribution_status === 'no_significant_link'
-                            ? 'no significant link'
-                            : a.attribution_status}
+                      /* The constant case whispers: a glyph and one quiet word,
+                         with the full reason on hover. Suppression is a correct
+                         outcome, not a failure, and it does not need to shout
+                         54 times to say so. */
+                      <div className="text-2xs text-ink-dim flex items-center gap-1.5"
+                           title={a.attribution_status === 'suppressed'
+                             ? 'Attribution suppressed: the announcing IPs belong to shared infrastructure, so naming an owner would be a guess.'
+                             : 'No entity-IP association survived FDR control.'}>
+                        <span aria-hidden className="text-rule">—</span>
+                        {a.attribution_status === 'suppressed' ? 'suppressed'
+                          : a.attribution_status === 'no_significant_link' ? 'no link'
+                          : a.attribution_status}
                       </div>
                     )}
                   </td>
-                  <td className="px-3 py-2.5 align-top num">
+                  <td className="px-3 py-1.5 align-top num">
                     <div className="mono text-md font-semibold whitespace-nowrap">₿ {fmt.btc(a.total_out)}</div>
                     <div className="mono text-2xs text-ink-dim whitespace-nowrap">in ₿ {fmt.btc(a.total_in)}</div>
                   </td>
-                  <td className="px-2 py-2.5 align-top">
+                  <td className="px-2 py-1.5 align-top">
                     {a.verdict
                       ? <Tag layer={a.verdict === 'confirmed' ? 'confirm' : 'data'}>{a.verdict}</Tag>
                       : null}

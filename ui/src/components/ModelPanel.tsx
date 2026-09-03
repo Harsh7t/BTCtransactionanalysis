@@ -11,7 +11,7 @@
  */
 import { useEffect, useState } from 'react';
 import { api } from '../api';
-import { Bar, Eyebrow, Notice, Panel, Spinner, Tag } from '../ui';
+import { Bar, Counter, Eyebrow, Notice, Panel, Spinner, Tag } from '../ui';
 import { ReliabilityCurve } from './Charts';
 import { SensitivityCurve } from './SensitivityCurve';
 
@@ -62,6 +62,18 @@ export function ModelPanel() {
 
   return (
     <div className="p-3 space-y-3">
+
+    <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 mb-3">
+
+      <h1 className="display text-ink">model</h1>
+
+      <span className="text-sm text-ink-soft">
+
+        opened on purpose — including the numbers we are not proud of
+
+      </span>
+
+    </div>
       {/* provenance strip */}
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1 bg-ink text-white px-3.5 py-2">
         <span className="font-cond font-bold uppercase text-md">Model panel</span>
@@ -87,19 +99,26 @@ export function ModelPanel() {
           </p>
         </Panel>
 
-        <Panel>
+        <Panel weight="primary">
           <Eyebrow layer="fusion">ablation — where the lift comes from</Eyebrow>
           <table className="w-full">
             <tbody>
-              {abl.map((a) => (
-                <tr key={a.stage} className="border-b border-rule-soft last:border-0">
+              {/* Staggered so the sequence reads as an argument rather than a
+                  table: rules barely move, then the model arrives. This is the
+                  strongest claim in the submission and it was static. */}
+              {abl.map((a, i) => (
+                <tr key={a.stage} className="border-b border-rule-soft last:border-0 anim-rise"
+                    style={{ animationDelay: `${i * 110}ms` }}>
                   <td className="py-2 text-sm pr-2">{a.stage}</td>
                   <td className="py-2 w-28">
                     <Bar value={a.pr_auc} max={maxAbl}
                          layer={a.stage.includes('rules') || a.stage.includes('unsupervised')
-                           ? 'data' : 'fusion'} width={100} height={11} />
+                           ? 'data' : 'fusion'} width={100} height={11}
+                         delay={i * 110 + 90} />
                   </td>
-                  <td className="py-2 num mono text-sm font-semibold w-14">{pct(a.pr_auc)}</td>
+                  <td className="py-2 num mono text-sm font-semibold w-14">
+                    <Counter value={a.pr_auc} decimals={3} duration={620} />
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -149,10 +168,12 @@ export function ModelPanel() {
                       style={{ color: leak.passed ? 'var(--confirm)' : 'var(--danger)' }}>
                   {leak.passed ? 'PASSED' : 'FAILED'}
                 </span>
-                <Tag layer={leak.passed ? 'confirm' : 'danger'}>
-                  strict tier {leak.lift_over_baseline}× baseline
-                </Tag>
-                <Tag layer="fusion">full model {leak.control_lift}×</Tag>
+                <span className="flex flex-wrap items-center gap-2">
+                  <Tag layer={leak.passed ? 'confirm' : 'danger'}>
+                    strict tier {leak.lift_over_baseline}× baseline
+                  </Tag>
+                  <Tag layer="fusion">full model {leak.control_lift}×</Tag>
+                </span>
               </div>
               <p className="text-sm text-ink-soft">
                 We wrote the generator, so a sharp reviewer will attack the data rather than the
@@ -181,7 +202,7 @@ export function ModelPanel() {
         </Panel>
 
         <div className="space-y-3">
-          <Panel accent="network">
+          <Panel>
             <Eyebrow layer="network">generalisation to unseen typologies</Eyebrow>
             <div className="flex items-end gap-3 mb-1.5">
               <span className="font-cond font-bold text-3xl leading-none">{pct(ho.recall_at_threshold)}</span>
@@ -225,7 +246,7 @@ export function ModelPanel() {
       {/* The differentiator, measured - and the curve it sits on. */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {met.attribution && (
-          <Panel accent="network">
+          <Panel>
             <Eyebrow layer="network" right={`${met.attribution.n_evaluable.toLocaleString()} evaluable entities`}>
               attribution accuracy — the differentiator, measured
             </Eyebrow>
@@ -260,7 +281,7 @@ export function ModelPanel() {
         )}
 
         {m.sensitivity && (
-          <Panel accent="network">
+          <Panel>
             <Eyebrow layer="network">attribution vs observation coverage</Eyebrow>
             <SensitivityCurve rows={m.sensitivity.curve} />
             <p className="text-sm text-ink-soft mt-2">
@@ -365,7 +386,7 @@ export function ModelPanel() {
         const w = m.elliptic_pp.wallet_classification;
         const c = m.elliptic_pp.cospend_clustering;
         return (
-          <Panel accent="confirm">
+          <Panel>
             <Eyebrow layer="confirm" right="Elliptic++ · KDD'23">
               external validation — at the actor level we actually ship
             </Eyebrow>
@@ -398,11 +419,12 @@ export function ModelPanel() {
 
       {/* The fusion weights are a trade-off, so show the curve they sit on. */}
       {(met.fusion_sweep || []).length > 0 && (
-        <Panel accent="fusion">
+        <Panel>
           <Eyebrow layer="fusion" right="measured on the test + held-out folds">
             fusion trade-off — why these weights
           </Eyebrow>
           <div className="overflow-x-auto">
+            <div className="overflow-x-auto scroll-hint">
             <table className="w-full min-w-[46rem]">
               <thead>
                 <tr className="border-b border-rule">
@@ -433,6 +455,7 @@ export function ModelPanel() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
           <p className="text-sm text-ink-soft mt-2 max-w-[95ch]">
             Leaning entirely on the supervised model maximises precision on the four typologies

@@ -57,34 +57,36 @@ export function CaseFile({ entity, onBack }: { entity: string; onBack: () => voi
   return (
     <div className="p-3">
       {/* --- case header ---------------------------------------------------- */}
-      <div className="flex items-center gap-3 bg-ink text-white px-3 h-11 mb-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 bg-ink text-white px-3 py-1.5 sm:h-11 mb-3">
         <button onClick={onBack}
-                className="mono text-xs flex items-center gap-1.5 hover:opacity-70 cursor-pointer transition-opacity duration-150">
+                className="text-xs flex items-center gap-1.5 hover:opacity-70 cursor-pointer transition-opacity duration-150">
           <IconBack /> alerts
         </button>
         <span className="w-px h-5 bg-white/25" />
         <span className="font-cond font-bold uppercase text-lg tracking-tight">
           Case file — {a.entity}
         </span>
-        <span className="mono text-2xs text-white/55">rank {a.rank} · run {d.run_id}</span>
-        <div className="ml-auto flex items-center gap-2 no-print">
+        <span className="text-2xs text-white/55 hidden sm:inline">rank <span className="mono">{a.rank}</span> · run <span className="mono">{d.run_id}</span></span>
+        <div className="ml-auto flex flex-wrap items-center gap-1.5 no-print">
           {verdict
             ? <Tag layer={verdict === 'confirmed' ? 'confirm' : 'data'}>{verdict}</Tag>
             : null}
           <a href={api.exportUrl(entity)} target="_blank" rel="noreferrer"
-             className="mono text-xs px-2.5 h-7 inline-flex items-center gap-1.5 border border-white/35
+             className="text-xs px-2.5 h-7 inline-flex items-center gap-1.5 border border-white/35
                         text-white hover:bg-white/10 transition-colors duration-150">
             <IconExport /> export
           </a>
           <button onClick={() => decide('confirmed')} disabled={busy}
-                  className="mono text-xs px-2.5 h-7 inline-flex items-center gap-1.5 text-white
-                             transition-opacity duration-150 hover:opacity-85 cursor-pointer"
+                  className="text-xs px-2.5 h-7 inline-flex items-center gap-1.5 text-white
+                             transition-opacity duration-150 hover:opacity-85 cursor-pointer
+                             disabled:opacity-40 disabled:cursor-default"
                   style={{ background: 'var(--confirm)' }}>
             <IconCheck /> confirm
           </button>
           <button onClick={() => decide('dismissed')} disabled={busy}
-                  className="mono text-xs px-2.5 h-7 inline-flex items-center gap-1.5 border
-                             border-white/35 text-white hover:bg-white/10 transition-colors duration-150">
+                  className="text-xs px-2.5 h-7 inline-flex items-center gap-1.5 border
+                             border-white/35 text-white hover:bg-white/10 transition-colors duration-150
+                             disabled:opacity-40 disabled:cursor-default">
             <IconX /> dismiss
           </button>
         </div>
@@ -232,11 +234,12 @@ export function CaseFile({ entity, onBack }: { entity: string; onBack: () => voi
               </p>
             ) : (
               <>
-                <table className="w-full">
+                <div className="overflow-x-auto scroll-hint">
+                <table className="w-full min-w-[34rem]">
                   <thead>
                     <tr className="border-b border-rule">
                       {['address', 'asn', 'type', 'obs', 'roots', 'p', 'confidence'].map((h, i) => (
-                        <th key={h} className={`eyebrow py-1.5 ${i >= 3 ? 'text-right' : 'text-left'}`}>{h}</th>
+                        <th key={h} className={`colhead py-1.5 ${i >= 3 ? 'text-right' : 'text-left'}`}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -259,6 +262,7 @@ export function CaseFile({ entity, onBack }: { entity: string; onBack: () => voi
                     ))}
                   </tbody>
                 </table>
+                </div>
                 <p className="mono text-2xs text-network mt-2 leading-relaxed">
                   Diffusion-adjusted. Bitcoin Core randomises per-peer relay delay, so a single
                   observation is weak evidence by construction; propagation-tree roots are weighted

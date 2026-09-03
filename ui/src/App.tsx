@@ -77,24 +77,28 @@ export default function App() {
   return (
     <div className="min-h-full flex flex-col">
       {/* ---------------- chrome ---------------- */}
-      <header className="bg-ink text-white flex items-center gap-4 px-3.5 h-12 shrink-0">
-        <div className="flex items-baseline gap-2">
+      {/* `min-w-0` on the flex children and a shrinking wordmark: without them the
+          three groups summed to 489px inside a 375px viewport, pushing the OFFLINE
+          pill to clip mid-word and taking `load capture` - the only data-ingest
+          control in the app - entirely off-screen on a phone. */}
+      <header className="bg-ink text-white flex items-center gap-2 sm:gap-4 px-2.5 sm:px-3.5 h-12 shrink-0">
+        <div className="flex items-baseline gap-2 shrink-0">
           <span className="font-cond font-bold uppercase text-lg tracking-tight">BTC-Fusion</span>
           <span className="mono text-2xs text-white/45 hidden md:inline">
             network ⇄ chain attribution
           </span>
         </div>
 
-        <nav className="flex items-center gap-0.5 ml-3" aria-label="Main">
+        <nav className="flex items-center gap-0.5 ml-1 sm:ml-3 min-w-0" aria-label="Main">
           {([['alerts', 'Alerts'], ['model', 'Model'], ['provenance', 'Provenance']] as const)
             .map(([t, label]) => {
               const active = view.tab === t && !(t === 'alerts' && view.entity);
               return (
                 <button key={t} onClick={() => go(t)}
                         aria-current={active ? 'page' : undefined}
-                        className="mono text-xs px-3 h-12 border-b-2 transition-colors duration-150 cursor-pointer"
+                        className="text-xs px-2 sm:px-3 h-12 border-b-2 transition-colors duration-150 cursor-pointer"
                         style={active
-                          ? { borderColor: 'var(--fusion)', color: '#fff' }
+                          ? { borderColor: '#fff', color: '#fff' }
                           : { borderColor: 'transparent', color: 'rgba(255,255,255,.5)' }}>
                   {label}
                 </button>
@@ -102,7 +106,7 @@ export default function App() {
             })}
         </nav>
 
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-2 sm:gap-3 shrink-0">
           {run && (
             <span className="mono text-2xs text-white/50 hidden lg:inline">
               {run.receipt?.file} · {fmt.int(run.n_rows)} rows · {run.duration_s}s
@@ -121,7 +125,7 @@ export default function App() {
                   className="mono text-xs px-2.5 h-7 inline-flex items-center gap-1.5 border
                              border-white/35 hover:bg-white/10 transition-colors duration-150
                              cursor-pointer disabled:opacity-40">
-            <IconUpload /> load capture
+            <IconUpload /> <span className="hidden sm:inline">load capture</span>
           </button>
         </div>
       </header>
@@ -190,18 +194,33 @@ export default function App() {
       {/* ---------------- status bar ---------------- */}
       <footer className="bg-surface border-t border-rule px-3.5 py-1.5 flex flex-wrap
                          items-center gap-x-5 gap-y-1 shrink-0 no-print">
-        <span className="mono text-2xs text-ink-dim">
+        <span className="text-2xs text-ink-dim">
           SIH 2026 · PS 26146 · NTRO · Blockchain &amp; Cybersecurity
         </span>
+
+        {/* The layer palette is the one thing in this interface a viewer cannot
+            infer. It was documented only in a CSS comment, so every coloured
+            rule and figure on every screen was undecodable by design. */}
+        <span className="flex items-center gap-3" aria-label="Colour key">
+          {([['chain', 'chain layer'], ['network', 'network layer'],
+             ['fusion', 'model output'], ['confirm', 'analyst action']] as const)
+            .map(([k, label]) => (
+              <span key={k} className="flex items-center gap-1.5 text-2xs text-ink-dim">
+                <span aria-hidden className="w-2 h-2 inline-block"
+                      style={{ background: `var(--${k})` }} />
+                {label}
+              </span>
+            ))}
+        </span>
         {run?.receipt?.attribution && (
-          <span className="mono text-2xs text-ink-dim">
+          <span className="text-2xs text-ink-dim">
             attribution: {String((run.receipt.attribution as any).n_pairs_significant ?? 0)} significant
             of {String((run.receipt.attribution as any).n_pairs_tested ?? 0)} pairs tested
             · FDR α {String((run.receipt.attribution as any).fdr_alpha ?? '—')}
           </span>
         )}
         {health?.backend && (
-          <span className="ml-auto mono text-2xs text-ink-dim">
+          <span className="ml-auto text-2xs text-ink-dim">
             model backend {health.backend}
           </span>
         )}

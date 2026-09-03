@@ -21,8 +21,15 @@ export function Provenance() {
   const totalT = Object.values(t).reduce((a: number, b: any) => a + Number(b), 0);
 
   return (
-    <div className="p-3 grid grid-cols-1 lg:grid-cols-2 gap-3">
-      <Panel accent="data">
+    <div className="p-3">
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 mb-3">
+        <h1 className="display text-ink">provenance</h1>
+        <span className="text-sm text-ink-soft">
+          every figure traces to this input hash, this seed and this commit
+        </span>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+      <Panel>
         <Eyebrow layer="data">run manifest</Eyebrow>
         <table className="w-full">
           <tbody>
@@ -102,6 +109,7 @@ export function Provenance() {
           </p>
         </Panel>
       </div>
+    </div>
     </div>
   );
 }
