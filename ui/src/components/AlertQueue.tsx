@@ -98,7 +98,10 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
   const [showSuppressed, setShowSuppressed] = useState(false);
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'rank', dir: 'asc' });
-  const [cursor, setCursor] = useState(0);
+  // null until the user actually navigates. Starting at 0 painted row one as
+  // selected the moment the page loaded, which claims a choice nobody made and
+  // draws the eye to rank 1 as if it were special beyond simply being first.
+  const [cursor, setCursor] = useState<number | null>(null);
   const onOpenRef = useRef(onOpen);
   onOpenRef.current = onOpen;
   const toggleSort = (key: SortKey) =>
@@ -156,12 +159,16 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
       if (e.key === '/' && tag !== 'INPUT' && tag !== 'TEXTAREA') {
         e.preventDefault();
         searchRef.current?.focus();
-      } else if (e.key === 'Escape' && document.activeElement === searchRef.current) {
-        setQuery('');
-        searchRef.current?.blur();
+      } else if (e.key === 'Escape') {
+        if (document.activeElement === searchRef.current) {
+          setQuery('');
+          searchRef.current?.blur();
+        }
+        setCursor(null);
       } else if ((e.key === 'j' || e.key === 'k') && tag !== 'INPUT') {
         e.preventDefault();
-        setCursor((c) => Math.max(0, c + (e.key === 'j' ? 1 : -1)));
+        // First keypress selects the top row rather than moving from it.
+        setCursor((c) => (c === null ? 0 : Math.max(0, c + (e.key === 'j' ? 1 : -1))));
       } else if (e.key === 'Enter' && tag !== 'INPUT' && tag !== 'BUTTON') {
         // Completes the keyboard loop: j/k to move, Enter to open. Without this
         // the cursor was a highlight that could not do anything.
@@ -174,10 +181,11 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // Keep the keyboard cursor in range and scrolled into view.
+  // Keep the keyboard cursor scrolled into view - but never scroll on mount.
   useEffect(() => {
-    const el = document.querySelector<HTMLTableRowElement>(`tr[data-row="${cursor}"]`);
-    el?.scrollIntoView({ block: 'nearest' });
+    if (cursor === null) return;
+    document.querySelector<HTMLTableRowElement>(`tr[data-row="${cursor}"]`)
+      ?.scrollIntoView({ block: 'nearest' });
   }, [cursor]);
 
   useEffect(() => {
