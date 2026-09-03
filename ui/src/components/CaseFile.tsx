@@ -47,7 +47,11 @@ export function CaseFile({ entity, onBack }: { entity: string; onBack: () => voi
   if (!d) return <div className="p-8"><Spinner label={`assembling case file for ${entity}…`} /></div>;
 
   const a = d.alert;
-  const counterfactuals = d.attribution.flatMap((c) => c.counterfactuals || []).slice(0, 4);
+  // Candidates often share a counterfactual ("if the IPs resolve to a shared VPN"),
+  // and a flat concat printed it once per candidate. Dedupe on the text itself.
+  const counterfactuals = [...new Map(
+    d.attribution.flatMap((c) => c.counterfactuals || []).map((c) => [c.text, c]),
+  ).values()].slice(0, 4);
   const top = d.attribution[0];
 
   return (

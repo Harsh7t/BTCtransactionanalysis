@@ -18,7 +18,11 @@ import { Bar, Button, Chip, Eyebrow, IconFilter, Notice, Panel, Spinner, Stat, T
 const TYPOLOGIES = ['peel_chain', 'fan_out_in', 'rapid_layering',
   'mixer_passthrough', 'dormancy_burst', 'cross_asn_structuring'];
 
-function confLayer(c: number) { return c >= 0.75 ? 'fusion' : c >= 0.6 ? 'fusion' : 'data'; }
+// Confidence is the model's output, so the bar carries the `fusion` layer colour.
+// This was a three-tier ternary whose first two branches both returned 'fusion' -
+// a scale that was specified and never implemented. Scores in this queue span
+// 0.961-0.999, so a magnitude ramp would encode nothing regardless.
+const CONF_LAYER = 'fusion' as const;
 
 export function IngestReceipt({ r }: { r: Receipt }) {
   const q = r.rows_quarantined ?? 0;
@@ -154,13 +158,13 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
               <tbody>
                 {txRows.map((t) => (
                   <tr key={t.txid} className="border-b border-rule-soft hover:bg-fusion-wash transition-colors duration-150">
-                    <td className="px-3 py-2 mono text-sm">{t.txid.slice(0, 22)}\u2026</td>
+                    <td className="px-3 py-2 mono text-sm">{t.txid.slice(0, 22)}…</td>
                     <td className="px-3 py-2 mono text-sm">
                       <button onClick={() => onOpen(t.entity)}
                               className="text-chain hover:underline cursor-pointer">{t.entity}</button>
                     </td>
                     <td className="px-3 py-2 mono text-2xs text-ink-dim">{fmt.time(String(t.ts))}</td>
-                    <td className="px-3 py-2 num mono text-sm">\u20bf {fmt.btc(t.value_out)}</td>
+                    <td className="px-3 py-2 num mono text-sm">₿ {fmt.btc(t.value_out)}</td>
                     <td className="px-3 py-2 num mono text-2xs">{t.n_inputs}/{t.n_outputs}</td>
                     <td className="px-3 py-2 num mono text-2xs">{(t.output_entropy ?? 0).toFixed(2)}</td>
                     <td className="px-3 py-2 num">
@@ -262,7 +266,7 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
                   </td>
                   <td className="px-3 py-2.5 align-top">
                     <div className="flex items-center gap-2">
-                      <Bar value={a.confidence} layer={confLayer(a.confidence) as 'fusion' | 'data'} width={120} height={9} />
+                      <Bar value={a.confidence} layer={CONF_LAYER} width={120} height={9} />
                       <span className="mono text-md font-semibold">{fmt.conf(a.confidence)}</span>
                     </div>
                     <div className="mono text-2xs text-ink-dim">
