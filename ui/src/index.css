@@ -1,12 +1,15 @@
 /* BTC-FUSION — application design language.
  *
  * This is deliberately NOT a new visual identity. The project already has one:
- * diagrams.html, the six plates that ship in the submission deck. IBM Plex,
- * hairline rules, square corners, mono small-caps labels, and a palette where
+ * diagrams.html, the six plates that ship in the submission deck: hairline
+ * rules, square corners, small-caps labels, and a palette where
  * every accent names a DATA LAYER rather than a mood. Plates 04-06 are literal
  * wireframes of these screens — dark chrome over a dense light body — so the
- * app continues that language instead of competing with it. Deck and product
- * read as one designed system, which is the whole point.
+ * app continues that language instead of competing with it.
+ *
+ * The one deliberate departure is the typefaces - see the note above the font
+ * imports. The plates used IBM Plex; the product does not, because that pairing
+ * now reads as a template rather than as an instrument.
  *
  * THE LAYER PALETTE IS SEMANTIC, NOT DECORATIVE:
  *   chain   blockchain-layer facts      network  network-layer facts
@@ -28,15 +31,30 @@
  *     the default hairline, and .panel-sub (filled, borderless, for footnotes).
  *     When every panel is accented, the accent says nothing.
  */
-@import '@fontsource/ibm-plex-sans/300.css';
-@import '@fontsource/ibm-plex-sans/400.css';
-@import '@fontsource/ibm-plex-sans/500.css';
-@import '@fontsource/ibm-plex-sans/600.css';
-@import '@fontsource/ibm-plex-sans-condensed/600.css';
-@import '@fontsource/ibm-plex-sans-condensed/700.css';
-@import '@fontsource/ibm-plex-mono/400.css';
-@import '@fontsource/ibm-plex-mono/500.css';
-@import '@fontsource/ibm-plex-mono/600.css';
+/* TYPEFACES. IBM Plex was the wrong call and it is worth saying why: Plex Sans
+   over Plex Mono has become the default "technical product" pairing, which means
+   it now signals template rather than instrument - the exact impression this
+   interface was trying to avoid. Three faces replace it, each chosen for a
+   reason this product can defend:
+
+   Public Sans - the typeface of the US Web Design System, drawn for government
+     interfaces that have to be legible and sober rather than fashionable. For a
+     tool submitted to a national technical agency that is an argument, not a
+     preference.
+   Archivo - a grotesque with editorial weight. Uppercase at 800 it reads as a
+     dossier header, which is what a case file heading actually is.
+   Spline Sans Mono - narrow enough for dense txid columns, with real character
+     at 11px where most monos turn to grey texture. */
+@import '@fontsource/public-sans/400.css';
+@import '@fontsource/public-sans/500.css';
+@import '@fontsource/public-sans/600.css';
+@import '@fontsource/public-sans/700.css';
+@import '@fontsource/archivo/600.css';
+@import '@fontsource/archivo/700.css';
+@import '@fontsource/archivo/800.css';
+@import '@fontsource/spline-sans-mono/400.css';
+@import '@fontsource/spline-sans-mono/500.css';
+@import '@fontsource/spline-sans-mono/600.css';
 
 @tailwind base;
 @tailwind components;
@@ -90,23 +108,23 @@ body {
   margin: 0;
   background: var(--paper);
   color: var(--ink);
-  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  font-family: 'Public Sans', system-ui, sans-serif;
   font-size: 13px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   font-variant-numeric: tabular-nums;
 }
 
-.mono { font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
+.mono { font-family: 'Spline Sans Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
 
 /* Condensed uppercase headings — the plate masthead voice. */
 /* The plate masthead voice. Every screen gets exactly one, and it is the
    largest thing on that screen. Before this existed in use, the biggest element
    on the alert queue was the 16px wordmark and the eye had nowhere to land. */
 .display {
-  font-family: 'IBM Plex Sans Condensed', sans-serif;
-  font-weight: 700;
-  letter-spacing: -0.012em;
+  font-family: 'Archivo', sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.022em;
   text-transform: uppercase;
   line-height: 1.02;
   font-size: clamp(22px, 2.9vw, 32px);
@@ -114,9 +132,9 @@ body {
 /* The headline figure a screen is actually about - the receipt count, the
    calibrated confidence. Condensed so it can be large without being loud. */
 .figure {
-  font-family: 'IBM Plex Sans Condensed', sans-serif;
+  font-family: 'Archivo', sans-serif;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   line-height: 1;
   font-variant-numeric: tabular-nums;
   font-size: clamp(26px, 3.6vw, 40px);
@@ -127,7 +145,7 @@ body {
    inside a 1.33x size range, which is what made a dense instrument read as a
    printed table. Mono is now reserved for values. */
 .eyebrow {
-  font-family: 'IBM Plex Sans', sans-serif;
+  font-family: 'Public Sans', sans-serif;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.075em;
@@ -139,7 +157,7 @@ body {
    the same visual object introduced a screen region and labelled a table
    column - the reader had no way to tell scope from appearance. */
 .colhead {
-  font-family: 'IBM Plex Sans', sans-serif;
+  font-family: 'Public Sans', sans-serif;
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.06em;

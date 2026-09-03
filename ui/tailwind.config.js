@@ -16,9 +16,9 @@ export default {
         'danger-wash': 'var(--danger-wash)',
       },
       fontFamily: {
-        sans: ['IBM Plex Sans', 'system-ui', 'sans-serif'],
-        cond: ['IBM Plex Sans Condensed', 'system-ui', 'sans-serif'],
-        mono: ['IBM Plex Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        sans: ['Public Sans', 'system-ui', 'sans-serif'],
+        cond: ['Archivo', 'system-ui', 'sans-serif'],
+        mono: ['Spline Sans Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       fontSize: {
         '2xs': ['10.5px', '14px'], xs: ['11.5px', '16px'], sm: ['12px', '17px'],

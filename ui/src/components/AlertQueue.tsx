@@ -69,6 +69,23 @@ export function IngestReceipt({ r }: { r: Receipt }) {
   );
 }
 
+type SortKey = 'rank' | 'confidence' | 'novelty' | 'total_out' | 'n_ips';
+
+/* Column widths are declared here rather than inline because the ratios matter:
+   typology previously took 338px - the widest column in the table - to hold two
+   short tags, which pushed confidence and attribution into the right third and
+   left a long empty gap for the eye to cross. */
+const COLUMNS: { key: string; label: string; align: string; width: string; sort?: SortKey }[] = [
+  { key: 'rank',  label: '#',           align: 'text-right', width: 'w-12',  sort: 'rank' },
+  { key: 'ent',   label: 'entity',      align: 'text-left',  width: 'w-52' },
+  { key: 'typ',   label: 'typology',    align: 'text-left',  width: 'w-56' },
+  { key: 'conf',  label: 'confidence',  align: 'text-left',  width: 'w-52', sort: 'confidence' },
+  { key: 'nov',   label: 'novelty',     align: 'text-right', width: 'w-20', sort: 'novelty' },
+  { key: 'attr',  label: 'attribution', align: 'text-left',  width: 'w-44' },
+  { key: 'val',   label: 'value moved', align: 'text-right', width: 'w-36', sort: 'total_out' },
+  { key: 'act',   label: '',            align: 'text-left',  width: 'w-8' },
+];
+
 export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
@@ -80,6 +97,12 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
   const [unreviewed, setUnreviewed] = useState(false);
   const [showSuppressed, setShowSuppressed] = useState(false);
   const [query, setQuery] = useState('');
+  const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'rank', dir: 'asc' });
+  const [cursor, setCursor] = useState(0);
+  const onOpenRef = useRef(onOpen);
+  onOpenRef.current = onOpen;
+  const toggleSort = (key: SortKey) =>
+    setSort((s0) => ({ key, dir: s0.key === key && s0.dir === 'asc' ? 'desc' : 'asc' }));
   const searchRef = useRef<HTMLInputElement>(null);
   // The PS asks why a wallet OR a transaction was flagged. Entities are the
   // investigative unit and stay the default; transactions are one click away.
@@ -104,14 +127,26 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return alerts.filter((a) =>
+    const rows = alerts.filter((a) =>
       (showSuppressed || a.confidence >= threshold)
       && (!typology || a.typologies.includes(typology))
       && (!asnType || a.top_asn_type === asnType)
       && (!unreviewed || !a.verdict)
       && (!q || a.entity.toLowerCase().includes(q))
     );
-  }, [alerts, threshold, typology, asnType, unreviewed, showSuppressed, query]);
+    const dir = sort.dir === 'asc' ? 1 : -1;
+    return [...rows].sort((x, y) => {
+      const vx = sort.key === 'total_out' ? x.total_out
+        : sort.key === 'n_ips' ? x.n_ips
+        : sort.key === 'novelty' ? x.novelty
+        : sort.key === 'confidence' ? x.confidence : x.rank;
+      const vy = sort.key === 'total_out' ? y.total_out
+        : sort.key === 'n_ips' ? y.n_ips
+        : sort.key === 'novelty' ? y.novelty
+        : sort.key === 'confidence' ? y.confidence : y.rank;
+      return (vx - vy) * dir;
+    });
+  }, [alerts, threshold, typology, asnType, unreviewed, showSuppressed, query, sort]);
 
   // `/` focuses search, Escape clears it. Analysts in this genre live on the
   // keyboard; the queue previously had no shortcut of any kind.
@@ -124,11 +159,26 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
       } else if (e.key === 'Escape' && document.activeElement === searchRef.current) {
         setQuery('');
         searchRef.current?.blur();
+      } else if ((e.key === 'j' || e.key === 'k') && tag !== 'INPUT') {
+        e.preventDefault();
+        setCursor((c) => Math.max(0, c + (e.key === 'j' ? 1 : -1)));
+      } else if (e.key === 'Enter' && tag !== 'INPUT' && tag !== 'BUTTON') {
+        // Completes the keyboard loop: j/k to move, Enter to open. Without this
+        // the cursor was a highlight that could not do anything.
+        const row = document.querySelector<HTMLElement>('tr[data-open][data-cursor="1"]');
+        const id = row?.getAttribute('data-open');
+        if (id) { e.preventDefault(); onOpenRef.current(id); }
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+
+  // Keep the keyboard cursor in range and scrolled into view.
+  useEffect(() => {
+    const el = document.querySelector<HTMLTableRowElement>(`tr[data-row="${cursor}"]`);
+    el?.scrollIntoView({ block: 'nearest' });
+  }, [cursor]);
 
   useEffect(() => {
     if (level !== 'transactions') return;
@@ -221,6 +271,10 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
           <span className="mono font-semibold text-ink">{visible.length}</span> leads ranked by the classifier
         </span>
         <div className="ml-auto flex items-center gap-2">
+          <span className="text-2xs text-ink-dim hidden lg:inline">
+            <kbd className="mono">/</kbd> search · <kbd className="mono">j</kbd>
+            <kbd className="mono">k</kbd> move · <kbd className="mono">↵</kbd> open
+          </span>
           <input
             ref={searchRef}
             value={query}
@@ -242,17 +296,28 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
       {/* --- filters ------------------------------------------------------- */}
       <div className="flex flex-wrap items-center gap-2 mb-2.5">
         <span className="colhead flex items-center gap-1.5"><IconFilter className="w-3 h-3" />filters</span>
-        <Chip active={!typology} onClick={() => setTypology('')}>all typologies</Chip>
-        {TYPOLOGIES.map((t) => (
-          <Chip key={t} active={typology === t} onClick={() => setTypology(typology === t ? '' : t)}>
-            {fmt.typology(t)}
-          </Chip>
-        ))}
+        <Chip active={!typology} onClick={() => setTypology('')}>
+          all typologies <span className="opacity-60">{alerts.length}</span>
+        </Chip>
+        {TYPOLOGIES.map((t) => {
+          const n = alerts.filter((a) => a.typologies.includes(t)).length;
+          return (
+            <Chip key={t} active={typology === t} disabled={n === 0}
+                  onClick={() => setTypology(typology === t ? '' : t)}>
+              {fmt.typology(t)} <span className="opacity-60">{n}</span>
+            </Chip>
+          );
+        })}
         {asnTypes.length > 0 && <span className="w-px h-5 bg-rule mx-1" />}
-        {asnTypes.map((t) => (
-          <Chip key={t} layer="network" active={asnType === t}
-                onClick={() => setAsnType(asnType === t ? '' : t)}>{t}</Chip>
-        ))}
+        {asnTypes.map((t) => {
+          const n = alerts.filter((a) => a.top_asn_type === t).length;
+          return (
+            <Chip key={t} layer="network" active={asnType === t}
+                  onClick={() => setAsnType(asnType === t ? '' : t)}>
+              {t} <span className="opacity-60">{n}</span>
+            </Chip>
+          );
+        })}
         <Chip layer="confirm" active={unreviewed} onClick={() => setUnreviewed(!unreviewed)}>
           unreviewed only
         </Chip>
@@ -282,16 +347,25 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
         <table className="w-full border-collapse min-w-[62rem]">
           <thead>
             <tr className="border-b border-rule">
-              {['#', 'entity', 'typology', 'confidence', 'attribution', 'value moved', ''].map((h, i) => (
-                <th key={h + i}
-                    className={`colhead px-3 py-2 ${i === 5 ? 'text-right' : 'text-left'} ${i === 3 ? 'w-56' : ''}`}>
-                  {h}
+              {COLUMNS.map((c) => (
+                <th key={c.key}
+                    onClick={c.sort ? () => toggleSort(c.sort!) : undefined}
+                    aria-sort={c.sort && sort.key === c.sort
+                      ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}
+                    className={`colhead px-3 py-2 ${c.align} ${c.width}
+                      ${c.sort ? 'cursor-pointer select-none hover:text-ink' : ''}`}>
+                  {c.label}
+                  {c.sort ? (
+                    <span className={`ml-1 ${sort.key === c.sort ? 'text-ink' : 'text-rule'}`}>
+                      {sort.key === c.sort ? (sort.dir === 'asc' ? '▲' : '▼') : '⇅'}
+                    </span>
+                  ) : null}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {visible.map((a) => {
+            {visible.map((a, ri) => {
               const below = a.confidence < threshold;
               const typs = a.typologies ? a.typologies.split('|').filter(Boolean) : [];
               return (
@@ -299,20 +373,28 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
                     onClick={() => onOpen(a.entity)}
                     tabIndex={0}
                     onKeyDown={(e) => { if (e.key === 'Enter') onOpen(a.entity); }}
-                    style={{ animationDelay: `${Math.min(a.rank, 14) * 18}ms` }}
+                    data-row={ri}
+                    data-open={a.entity}
+                    data-cursor={ri === cursor ? '1' : '0'}
+                    style={{ animationDelay: `${Math.min(ri, 14) * 18}ms` }}
                     className={`anim-rise border-b border-rule-soft cursor-pointer transition-colors duration-150
                       hover:bg-active-wash ${below ? 'opacity-55' : ''}
-                      ${a.rank <= 3 ? 'bg-surface' : ''}`}>
-                  <td className="px-3 py-1.5 align-top">
-                    {/* Rank 1 and rank 60 used to be typographically identical. */}
+                      ${ri === cursor ? 'bg-chain-wash outline outline-1 -outline-offset-1 outline-chain' : ''}`}>
+                  <td className="px-3 py-1.5 align-top num">
+                    {/* Right-aligned: left-aligned ranks put the units digit of 1,
+                        10 and 60 in three different places. */}
                     <span className={a.rank <= 3
                       ? 'mono text-lg font-semibold text-ink'
                       : 'mono text-sm text-ink-dim'}>{a.rank}</span>
                   </td>
                   <td className="px-3 py-1.5 align-top">
                     <div className="mono text-md font-semibold text-ink whitespace-nowrap">{a.entity}</div>
-                    <div className="mono text-2xs text-ink-dim whitespace-nowrap">
-                      {fmt.int(a.n_addresses)} addr · {fmt.int(a.n_tx)} tx · {fmt.int(a.n_ips)} IP
+                    <div className="text-2xs whitespace-nowrap flex items-center gap-1">
+                      <span className="text-chain"><span className="mono">{fmt.int(a.n_addresses)}</span> addr</span>
+                      <span className="text-rule">·</span>
+                      <span className="text-chain"><span className="mono">{fmt.int(a.n_tx)}</span> tx</span>
+                      <span className="text-rule">·</span>
+                      <span className="text-network"><span className="mono">{fmt.int(a.n_ips)}</span> IP</span>
                     </div>
                   </td>
                   <td className="px-3 py-1.5 align-top max-w-[16rem]">
@@ -356,6 +438,9 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
                            delay={Math.min(a.rank, 14) * 18 + 60} />
                     </div>
                   </td>
+                  <td className="px-3 py-1.5 align-top num">
+                    <span className="mono text-sm text-network">{fmt.conf(a.novelty)}</span>
+                  </td>
                   <td className="px-3 py-1.5 align-top">
                     {a.attribution_status === 'ok' && a.top_asn ? (
                       <>
@@ -390,8 +475,12 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
                     )}
                   </td>
                   <td className="px-3 py-1.5 align-top num">
-                    <div className="mono text-md font-semibold whitespace-nowrap">₿ {fmt.btc(a.total_out)}</div>
-                    <div className="mono text-2xs text-ink-dim whitespace-nowrap">in ₿ {fmt.btc(a.total_in)}</div>
+                    <div className="mono text-md font-semibold whitespace-nowrap text-chain">
+                      ₿ {fmt.btc(a.total_out)}
+                    </div>
+                    <div className="text-2xs text-ink-dim whitespace-nowrap">
+                      in <span className="mono">₿ {fmt.btc(a.total_in)}</span>
+                    </div>
                   </td>
                   <td className="px-2 py-1.5 align-top">
                     {a.verdict

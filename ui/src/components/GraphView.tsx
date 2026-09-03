@@ -84,7 +84,7 @@ export function GraphView({ entity }: { entity: string }) {
         } },
         { selector: 'node[?subject]', style: {
           'background-color': '#0E1C27', width: 20, height: 20,
-          label: 'data(label)', 'font-family': 'IBM Plex Mono', 'font-size': 9,
+          label: 'data(label)', 'font-family': 'Spline Sans Mono', 'font-size': 9,
           'text-valign': 'bottom', 'text-margin-y': 5, color: '#0E1C27',
         } },
         { selector: 'edge', style: {

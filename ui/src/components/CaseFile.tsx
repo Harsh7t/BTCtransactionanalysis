@@ -63,7 +63,7 @@ export function CaseFile({ entity, onBack }: { entity: string; onBack: () => voi
           <IconBack /> alerts
         </button>
         <span className="w-px h-5 bg-white/25" />
-        <span className="font-cond font-bold uppercase text-lg tracking-tight">
+        <span className="font-cond font-extrabold uppercase text-lg tracking-tighter">
           Case file — {a.entity}
         </span>
         <span className="text-2xs text-white/55 hidden sm:inline">rank <span className="mono">{a.rank}</span> · run <span className="mono">{d.run_id}</span></span>

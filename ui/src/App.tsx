@@ -83,7 +83,7 @@ export default function App() {
           control in the app - entirely off-screen on a phone. */}
       <header className="bg-ink text-white flex items-center gap-2 sm:gap-4 px-2.5 sm:px-3.5 h-12 shrink-0">
         <div className="flex items-baseline gap-2 shrink-0">
-          <span className="font-cond font-bold uppercase text-lg tracking-tight">BTC-Fusion</span>
+          <span className="font-cond font-extrabold uppercase text-lg tracking-tighter">BTC-Fusion</span>
           <span className="mono text-2xs text-white/45 hidden md:inline">
             network ⇄ chain attribution
           </span>

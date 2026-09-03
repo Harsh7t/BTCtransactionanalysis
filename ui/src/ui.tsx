@@ -210,13 +210,15 @@ export function Button({ children, onClick, variant = 'default', disabled, title
 }
 
 /** Filter chip. Pressed state is a real aria-pressed toggle, not a colour trick. */
-export function Chip({ active, onClick, children, layer = 'fusion' }: {
+export function Chip({ active, onClick, children, layer = 'fusion', disabled }: {
   active?: boolean; onClick?: () => void; children: ReactNode; layer?: Layer;
+  disabled?: boolean;
 }) {
   return (
     <button
-      onClick={onClick} aria-pressed={!!active}
-      className="mono text-xs px-2.5 h-7 border transition-colors duration-150 cursor-pointer whitespace-nowrap"
+      onClick={onClick} aria-pressed={!!active} disabled={disabled}
+      className="text-xs px-2.5 h-7 border transition-colors duration-150 whitespace-nowrap
+                 cursor-pointer disabled:opacity-40 disabled:cursor-default"
       style={active
         ? { color: LAYER_VAR[layer], borderColor: LAYER_VAR[layer], background: LAYER_WASH[layer] }
         : { color: 'var(--ink-soft)', borderColor: 'var(--rule)', background: 'var(--surface)' }}

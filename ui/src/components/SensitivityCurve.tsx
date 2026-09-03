@@ -47,11 +47,11 @@ export function SensitivityCurve({ rows }: { rows: Row[] }) {
         ))}
         <line x1={P} y1={H - P} x2={W - 12} y2={H - P} stroke="var(--ink-soft)" strokeWidth={1} />
         <line x1={P} y1={16} x2={P} y2={H - P} stroke="var(--ink-soft)" strokeWidth={1} />
-        <text x={8} y={sy(1) + 3} fontSize="9" fill="var(--ink-dim)" fontFamily="IBM Plex Mono">1.0</text>
-        <text x={8} y={sy(0) + 3} fontSize="9" fill="var(--ink-dim)" fontFamily="IBM Plex Mono">0.0</text>
-        <text x={P} y={H - 12} fontSize="9" fill="var(--ink-dim)" fontFamily="IBM Plex Mono">0%</text>
-        <text x={W - 40} y={H - 12} fontSize="9" fill="var(--ink-dim)" fontFamily="IBM Plex Mono">100%</text>
-        <text x={P + 62} y={H - 12} fontSize="9" fill="var(--ink-dim)" fontFamily="IBM Plex Mono">
+        <text x={8} y={sy(1) + 3} fontSize="9" fill="var(--ink-dim)" fontFamily="Spline Sans Mono">1.0</text>
+        <text x={8} y={sy(0) + 3} fontSize="9" fill="var(--ink-dim)" fontFamily="Spline Sans Mono">0.0</text>
+        <text x={P} y={H - 12} fontSize="9" fill="var(--ink-dim)" fontFamily="Spline Sans Mono">0%</text>
+        <text x={W - 40} y={H - 12} fontSize="9" fill="var(--ink-dim)" fontFamily="Spline Sans Mono">100%</text>
+        <text x={P + 62} y={H - 12} fontSize="9" fill="var(--ink-dim)" fontFamily="Spline Sans Mono">
           announcements observed →
         </text>
       </svg>
