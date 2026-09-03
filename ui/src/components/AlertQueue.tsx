@@ -219,7 +219,7 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
                   onClick={() => setLevel(l)}
                   className="mono text-xs px-3 h-7 border transition-colors duration-150 cursor-pointer"
                   style={level === l
-                    ? { borderColor: 'var(--ink)', background: 'var(--ink)', color: '#fff' }
+                    ? { borderColor: 'var(--ink)', background: 'var(--ink)', color: 'var(--paper)' }
                     : { borderColor: 'var(--rule)', color: 'var(--ink-soft)' }}>
             {l}
           </button>
@@ -364,7 +364,7 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
                       ${c.sort ? 'cursor-pointer select-none hover:text-ink' : ''}`}>
                   {c.label}
                   {c.sort ? (
-                    <span className={`ml-1 ${sort.key === c.sort ? 'text-ink' : 'text-rule'}`}>
+                    <span className={`ml-1 ${sort.key === c.sort ? 'text-ink' : 'text-ink-dim opacity-55'}`}>
                       {sort.key === c.sort ? (sort.dir === 'asc' ? '▲' : '▼') : '⇅'}
                     </span>
                   ) : null}

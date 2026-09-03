@@ -75,7 +75,7 @@ export function ModelPanel() {
 
     </div>
       {/* provenance strip */}
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 bg-ink text-white px-3.5 py-2">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 bg-chrome text-white px-3.5 py-2">
         <span className="font-cond font-bold uppercase text-md">Model panel</span>
         <span className="mono text-2xs text-white/70">
           artifacts/{man.version} · feature_version {man.feature_version} · seed {man.seed}

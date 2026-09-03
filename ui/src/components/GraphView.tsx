@@ -14,6 +14,28 @@ import cytoscape, { type Core } from 'cytoscape';
 import { api, fmt, type GraphData } from '../api';
 import { Button, Spinner } from '../ui';
 
+/** Resolve the layer palette to literals for Cytoscape.
+ *
+ * Cytoscape paints to a canvas and cannot consume `var(--chain)`, so the tokens
+ * are read off the document at render time. This function is called again when
+ * the theme changes; hardcoding the values left the graph in light-theme colours
+ * on a dark canvas, with the subject node's label set to the light theme's ink
+ * (#0E1C27) on a near-black ground - invisible.
+ */
+function palette() {
+  const cs = getComputedStyle(document.documentElement);
+  const v = (n: string, fallback: string) => cs.getPropertyValue(n).trim() || fallback;
+  return {
+    ink: v('--ink', '#0E1C27'),
+    data: v('--data', '#5C6B78'),
+    rule: v('--rule', '#C3CCD4'),
+    wire: v('--rule-soft', '#AEB9C3'),
+    chain: v('--chain', '#2D6A9F'),
+    network: v('--network', '#7B4B94'),
+    fusion: v('--fusion', '#B8791C'),
+  };
+}
+
 export function GraphView({ entity }: { entity: string }) {
   const box = useRef<HTMLDivElement>(null);
   const cy = useRef<Core | null>(null);
@@ -29,6 +51,19 @@ export function GraphView({ entity }: { entity: string }) {
     truncated: boolean; n_addresses_total: number;
   } | null>(null);
   const [err, setErr] = useState<string | null>(null);
+
+  // Cytoscape resolves the palette once at paint time, so a theme change has to
+  // force a rebuild - otherwise the graph keeps the colours of whichever theme
+  // was active when the case file opened.
+  const [themeTick, setThemeTick] = useState(0);
+  useEffect(() => {
+    const obs = new MutationObserver(() => setThemeTick((n) => n + 1));
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onMq = () => setThemeTick((n) => n + 1);
+    mq.addEventListener('change', onMq);
+    return () => { obs.disconnect(); mq.removeEventListener('change', onMq); };
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -70,42 +105,43 @@ export function GraphView({ entity }: { entity: string }) {
       })),
     ];
 
+    const P = palette();
     const inst = cytoscape({
       container: box.current,
       elements,
       // Square-ish, flat, no glow — the same restraint as the rest of the app.
       style: [
         { selector: 'node', style: {
-          'background-color': '#AEB9C3', width: 9, height: 9,
+          'background-color': P.wire, width: 9, height: 9,
           label: '', 'border-width': 0,
         } },
         { selector: 'node[?alerted]', style: {
-          'background-color': '#B8791C', width: 13, height: 13,
+          'background-color': P.fusion, width: 13, height: 13,
         } },
         { selector: 'node[?subject]', style: {
-          'background-color': '#0E1C27', width: 20, height: 20,
+          'background-color': P.ink, width: 20, height: 20,
           label: 'data(label)', 'font-family': 'Spline Sans Mono', 'font-size': 9,
-          'text-valign': 'bottom', 'text-margin-y': 5, color: '#0E1C27',
+          'text-valign': 'bottom', 'text-margin-y': 5, color: P.ink,
         } },
         { selector: 'edge', style: {
-          width: 1, 'line-color': '#C3CCD4', 'curve-style': 'straight',
-          'target-arrow-shape': 'triangle', 'target-arrow-color': '#C3CCD4',
+          width: 1, 'line-color': P.rule, 'curve-style': 'straight',
+          'target-arrow-shape': 'triangle', 'target-arrow-color': P.rule,
           'arrow-scale': 0.5,
         } },
-        { selector: 'edge[value > 100000000]', style: { width: 2, 'line-color': '#7B4B94' } },
+        { selector: 'edge[value > 100000000]', style: { width: 2, 'line-color': P.network } },
         // Wallet and transaction nodes are shaped differently, not just tinted,
         // so the three layers stay distinguishable without relying on colour.
         { selector: 'node[kind = "address"]', style: {
-          'background-color': '#2D6A9F', width: 7, height: 7, shape: 'rectangle',
+          'background-color': P.chain, width: 7, height: 7, shape: 'rectangle',
         } },
         { selector: 'node[kind = "tx"]', style: {
-          'background-color': '#5C6B78', width: 6, height: 6, shape: 'diamond',
+          'background-color': P.data, width: 6, height: 6, shape: 'diamond',
         } },
         { selector: '.hi', style: {
-          'line-color': '#B8791C', 'target-arrow-color': '#B8791C', width: 2.5, 'z-index': 9,
+          'line-color': P.fusion, 'target-arrow-color': P.fusion, width: 2.5, 'z-index': 9,
         } },
         { selector: 'node:selected', style: {
-          'border-width': 2, 'border-color': '#2D6A9F',
+          'border-width': 2, 'border-color': P.chain,
         } },
       ],
       layout: {
@@ -123,7 +159,7 @@ export function GraphView({ entity }: { entity: string }) {
 
     cy.current = inst;
     return () => { inst.destroy(); cy.current = null; };
-  }, [data, entity, sub]);
+  }, [data, entity, sub, themeTick]);
 
   if (err) return <div className="p-3.5 text-sm text-danger">{err}</div>;
 

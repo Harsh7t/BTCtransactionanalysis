@@ -69,9 +69,11 @@
   --ink:        #0E1C27;
   --ink-soft:   #4A5B69;
   /* Was #6F808D = 4.08:1 on white, under the 4.5:1 floor, and applied to 338
-     leaf nodes on the landing screen alone. #5A6B78 measures 5.50:1 and keeps
-     the same cool grey character. */
-  --ink-dim:    #5A6B78;
+     leaf nodes on the landing screen alone. #5A6B78 cleared 5.50:1 on white but
+     only 4.48:1 on --paper, and most of this text sits on paper, not on a panel.
+     #56646F clears both (4.95 on paper, 6.09 on white). Measure against the
+     darkest ground a colour actually lands on, not the lightest. */
+  --ink-dim:    #56646F;
   --rule:       #C3CCD4;
   --rule-soft:  #DBE1E6;
 
@@ -80,8 +82,10 @@
   --network:    #7B4B94;
   /* Was #B8791C: 3.36:1 as tag text on --fusion-wash, i.e. the primary
      categorical signal in the queue was unreadable on a projector. #96610F
-     measures 5.24:1 on white and 4.87:1 on the wash. */
-  --fusion:     #96610F;
+     measured 5.23:1 on white but 4.25:1 on --paper, where the threshold readout
+     sits. #8C5B0E clears every ground it is used on: 4.71 paper, 5.80 white,
+     5.39 on its own wash. */
+  --fusion:     #8C5B0E;
   --confirm:    #2E7D5B;
   --data:       #5C6B78;
   --danger:     #A2453B;
@@ -103,6 +107,69 @@
      point: hover means "you are pointing at this", never "this is a chain
      fact". Colour keeps meaning provenance. */
   --active-wash:  #DCE3EA;
+
+  /* Chrome is the dark bar at the top of the app and the case-file header. It is
+     dark in BOTH themes, so it cannot be --ink: --ink is the text colour, and it
+     inverts. Anything painted on chrome (white, white/35) stays valid either
+     way because chrome never becomes light. */
+  --chrome:       #0E1C27;
+  color-scheme: light;
+}
+
+/* ---------------------------------------------------------------- dark theme
+   Not an inversion. The light theme is paper - a printed plate - and the dark
+   one is the other place this kind of tool actually lives: a darkened operations
+   room at 3am. Surfaces step UP from an almost-black ground rather than down
+   from white, and the layer colours are re-picked rather than reused, because
+   #2D6A9F chain-blue on a near-black panel measures 2.1:1 and is unreadable.
+   Every value below was checked against its own surface; the worst is 4.2:1 and
+   all body text clears 13:1. */
+:root[data-theme="dark"] {
+  --paper:      #0A0E12;
+  --surface:    #1A2229;
+  --surface-2:  #212A33;
+  --surface-3:  #28323C;
+  --ink:        #E3E9EF;
+  --ink-soft:   #A9B6C2;
+  --ink-dim:    #8B99A6;
+  --rule:       #323E4A;
+  --rule-soft:  #26303A;
+
+  --chain:      #6BAEE8;
+  --network:    #C199DA;
+  --fusion:     #E0A63F;
+  --confirm:    #54C793;
+  --data:       #9AA8B6;
+  --danger:     #EE8279;
+
+  /* Washes are tints of their own hue lifted off the surface, not lightened
+     greys - a grey wash under coloured text kills the layer signal. */
+  --chain-wash:   #16283A;
+  --network-wash: #2A1F35;
+  --fusion-wash:  #33270F;
+  --confirm-wash: #14301F;
+  --danger-wash:  #351B18;
+
+  --active:       #E3E9EF;
+  --active-wash:  #2B3641;
+
+  --chrome:       #05080B;
+  color-scheme: dark;
+}
+
+/* System preference, unless the user has explicitly chosen light. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0A0E12;      --surface: #1A2229;    --surface-2: #212A33;
+    --surface-3: #28323C;  --ink: #E3E9EF;        --ink-soft: #A9B6C2;
+    --ink-dim: #8B99A6;    --rule: #323E4A;       --rule-soft: #26303A;
+    --chain: #6BAEE8;      --network: #C199DA;    --fusion: #E0A63F;
+    --confirm: #54C793;    --data: #9AA8B6;       --danger: #EE8279;
+    --chain-wash: #16283A; --network-wash: #2A1F35; --fusion-wash: #33270F;
+    --confirm-wash: #14301F; --danger-wash: #351B18;
+    --active: #E3E9EF;     --active-wash: #2B3641; --chrome: #05080B;
+    color-scheme: dark;
+  }
 }
 
 * { box-sizing: border-box; }
@@ -178,7 +245,7 @@ body {
   outline-offset: 1px;
 }
 
-::selection { background: #B8791C33; }
+::selection { background: color-mix(in srgb, var(--fusion) 28%, transparent); }
 
 ::-webkit-scrollbar { width: 11px; height: 11px; }
 ::-webkit-scrollbar-track { background: var(--surface-2); }

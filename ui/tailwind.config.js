@@ -14,6 +14,8 @@ export default {
         'chain-wash': 'var(--chain-wash)', 'network-wash': 'var(--network-wash)',
         'fusion-wash': 'var(--fusion-wash)', 'confirm-wash': 'var(--confirm-wash)',
         'danger-wash': 'var(--danger-wash)',
+        chrome: 'var(--chrome)',
+        active: 'var(--active)', 'active-wash': 'var(--active-wash)',
       },
       fontFamily: {
         sans: ['Public Sans', 'system-ui', 'sans-serif'],

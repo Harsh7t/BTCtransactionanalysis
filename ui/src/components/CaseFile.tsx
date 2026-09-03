@@ -57,7 +57,7 @@ export function CaseFile({ entity, onBack }: { entity: string; onBack: () => voi
   return (
     <div className="p-3">
       {/* --- case header ---------------------------------------------------- */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 bg-ink text-white px-3 py-1.5 sm:h-11 mb-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 bg-chrome text-white px-3 py-1.5 sm:h-11 mb-3">
         <button onClick={onBack}
                 className="text-xs flex items-center gap-1.5 hover:opacity-70 cursor-pointer transition-opacity duration-150">
           <IconBack /> alerts

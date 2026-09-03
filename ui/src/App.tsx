@@ -6,6 +6,7 @@
  * the browser back button behaves.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { ThemeToggle } from './ThemeToggle';
 import { api, fmt, type Job, type Run } from './api';
 import { Button, IconUpload, Notice, Spinner } from './ui';
 import { AlertQueue } from './components/AlertQueue';
@@ -81,7 +82,7 @@ export default function App() {
           three groups summed to 489px inside a 375px viewport, pushing the OFFLINE
           pill to clip mid-word and taking `load capture` - the only data-ingest
           control in the app - entirely off-screen on a phone. */}
-      <header className="bg-ink text-white flex items-center gap-2 sm:gap-4 px-2.5 sm:px-3.5 h-12 shrink-0">
+      <header className="bg-chrome text-white flex items-center gap-2 sm:gap-4 px-2.5 sm:px-3.5 h-12 shrink-0">
         <div className="flex items-baseline gap-2 shrink-0">
           <span className="font-cond font-extrabold uppercase text-lg tracking-tighter">BTC-Fusion</span>
           <span className="mono text-2xs text-white/45 hidden md:inline">
@@ -119,6 +120,7 @@ export default function App() {
               OFFLINE
             </span>
           )}
+          <ThemeToggle />
           <input ref={fileRef} type="file" accept=".csv,.json,.jsonl,.xml" className="hidden"
                  onChange={(e) => onFile(e.target.files?.[0])} />
           <button onClick={() => fileRef.current?.click()} disabled={running}

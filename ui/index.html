@@ -6,6 +6,14 @@
     <title>BTC-FUSION · Bitcoin Transaction Traffic Analysis</title>
     <meta name="description" content="AI-powered monitoring and analysis of Bitcoin transaction traffic. Fuses network-layer and blockchain-layer evidence into ranked, explainable investigative leads." />
   </head>
+  <script>
+      /* Runs before first paint so the theme is correct on the first frame.
+         Kept inline and tiny on purpose: a deferred module would be too late. */
+      try {
+        var t = localStorage.getItem('btcfusion.theme');
+        if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+      } catch (e) { /* storage blocked - fall through to the system preference */ }
+    </script>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
