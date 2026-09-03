@@ -236,7 +236,7 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
               </thead>
               <tbody>
                 {txRows.map((t) => (
-                  <tr key={t.txid} className="border-b border-rule-soft hover:bg-fusion-wash transition-colors duration-150">
+                  <tr key={t.txid} className="row-hover border-b border-rule-soft cursor-pointer">
                     <td className="px-3 py-2 mono text-sm">{t.txid.slice(0, 22)}…</td>
                     <td className="px-3 py-2 mono text-sm">
                       <button onClick={() => onOpen(t.entity)}
@@ -377,8 +377,8 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
                     data-open={a.entity}
                     data-cursor={ri === cursor ? '1' : '0'}
                     style={{ animationDelay: `${Math.min(ri, 14) * 18}ms` }}
-                    className={`anim-rise border-b border-rule-soft cursor-pointer transition-colors duration-150
-                      hover:bg-active-wash ${below ? 'opacity-55' : ''}
+                    className={`anim-rise row-hover border-b border-rule-soft cursor-pointer
+                      ${below ? 'opacity-55' : ''}
                       ${ri === cursor ? 'bg-chain-wash outline outline-1 -outline-offset-1 outline-chain' : ''}`}>
                   <td className="px-3 py-1.5 align-top num">
                     {/* Right-aligned: left-aligned ranks put the units digit of 1,

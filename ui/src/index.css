@@ -98,7 +98,11 @@
      could mean "model output" or "you are pointing at this". A semantic colour
      that also marks focus has stopped being semantic. Interaction is now ink. */
   --active:       #0E1C27;
-  --active-wash:  #EDF0F3;
+  /* #EDF0F3 sat one step off --surface-2 and was barely perceptible as a hover
+     on a white row. #DCE3EA is unmistakable while staying neutral, which is the
+     point: hover means "you are pointing at this", never "this is a chain
+     fact". Colour keeps meaning provenance. */
+  --active-wash:  #DCE3EA;
 }
 
 * { box-sizing: border-box; }
@@ -215,6 +219,15 @@ input[type='range']::-moz-range-thumb {
     linear-gradient(to left, var(--surface), rgba(255,255,255,0)) right / 28px 100% no-repeat,
     linear-gradient(to left, rgba(14,28,39,.10), rgba(14,28,39,0)) right / 3px 100% no-repeat;
   background-attachment: local, scroll;
+}
+
+/* Row hover, shared by both tables on the home screen. The inset shadow draws
+   the left edge bar without a border, so the row does not shift by 2px on hover
+   - a table that twitches under the cursor is worse than one that does nothing. */
+.row-hover { transition: background-color 140ms cubic-bezier(.16, 1, .3, 1); }
+.row-hover:hover {
+  background: var(--active-wash);
+  box-shadow: inset 2px 0 0 0 var(--active);
 }
 
 /* --- Panel weight ---------------------------------------------------------
