@@ -36,6 +36,7 @@ export default function App() {
   const [health, setHealth] = useState<any>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [entered, setEntered] = useState(false);
+  const [runReady, setRunReady] = useState(false);
 
   useEffect(() => {
     const onHash = () => setView(parseHash());
@@ -54,7 +55,7 @@ export default function App() {
     const id = setInterval(() => {
       api.job(job.job_id).then((j) => {
         setJob(j);
-        if (j.state === 'done') { refresh(); window.location.hash = '#/alerts'; }
+        if (j.state === 'done') { refresh(); setRunReady(true); window.location.hash = '#/alerts'; }
       }).catch(() => {});
     }, 400);
     return () => clearInterval(id);
@@ -91,7 +92,7 @@ export default function App() {
 
         <nav className="flex items-center gap-0.5 ml-1 sm:ml-3 min-w-0" aria-label="Main">
           {([['alerts', 'Alerts'], ['model', 'Model'], ['provenance', 'Provenance']] as const)
-            .filter(([t]) => entered || t === 'model')
+            .filter(([t]) => t === 'model' || runReady)
             .map(([t, label]) => {
               const active = entered && view.tab === t && !(t === 'alerts' && view.entity);
               return (
@@ -107,7 +108,7 @@ export default function App() {
               );
             })}
           {entered && (
-            <button onClick={() => { setEntered(false); go('alerts'); }}
+            <button onClick={() => { setEntered(false); setRunReady(false); go('alerts'); }}
                     title="Back to the start screen — load another capture"
                     className="text-xs px-2 sm:px-3 h-12 border-b-2 border-transparent cursor-pointer
                                transition-colors duration-150"
@@ -118,7 +119,7 @@ export default function App() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2 sm:gap-3 shrink-0">
-          {run && entered && (
+          {run && runReady && (
             <span className="mono text-2xs text-white/50 hidden lg:inline">
               {run.receipt?.file} · {fmt.int(run.n_rows)} rows · {run.duration_s}s
             </span>
@@ -179,11 +180,11 @@ export default function App() {
       <main className="flex-1 min-h-0">
         {running && job ? (
           <Processing job={job} />
-        ) : !entered ? (
+        ) : !entered || (!runReady && view.tab !== 'model') ? (
           <StartScreen
             onStarted={(job_id, file) => { setEntered(true); setJob({ job_id, state: 'running', stage: 'ingest', file }); }}
             lastRun={run ? { rows: run.n_rows, file: run.receipt?.file || '' } : null}
-            onViewLast={() => { setEntered(true); go('alerts'); }}
+            onViewLast={() => { setEntered(true); setRunReady(true); go('alerts'); }}
           />
         ) : view.entity ? (
           <CaseFile entity={view.entity} onBack={() => go('alerts')} />
