@@ -91,10 +91,12 @@ export default function App() {
 
         <nav className="flex items-center gap-0.5 ml-1 sm:ml-3 min-w-0" aria-label="Main">
           {([['alerts', 'Alerts'], ['model', 'Model'], ['provenance', 'Provenance']] as const)
+            .filter(([t]) => entered || t === 'model')
             .map(([t, label]) => {
-              const active = view.tab === t && !(t === 'alerts' && view.entity);
+              const active = entered && view.tab === t && !(t === 'alerts' && view.entity);
               return (
-                <button key={t} onClick={() => go(t)}
+                <button key={t}
+                        onClick={() => { setEntered(true); go(t); }}
                         aria-current={active ? 'page' : undefined}
                         className="text-xs px-2 sm:px-3 h-12 border-b-2 transition-colors duration-150 cursor-pointer"
                         style={active
@@ -104,10 +106,19 @@ export default function App() {
                 </button>
               );
             })}
+          {entered && (
+            <button onClick={() => { setEntered(false); go('alerts'); }}
+                    title="Back to the start screen — load another capture"
+                    className="text-xs px-2 sm:px-3 h-12 border-b-2 border-transparent cursor-pointer
+                               transition-colors duration-150"
+                    style={{ color: 'rgba(255,255,255,.5)' }}>
+              ← Start
+            </button>
+          )}
         </nav>
 
         <div className="ml-auto flex items-center gap-2 sm:gap-3 shrink-0">
-          {run && (
+          {run && entered && (
             <span className="mono text-2xs text-white/50 hidden lg:inline">
               {run.receipt?.file} · {fmt.int(run.n_rows)} rows · {run.duration_s}s
             </span>
