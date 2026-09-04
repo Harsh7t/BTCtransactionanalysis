@@ -26,6 +26,55 @@ const STAGES: [string, string][] = [
   ['store', 'write the case files'],
 ];
 
+/* What each stage is actually doing, at the size someone will read it.
+ *
+ * A hundred seconds of waiting is the longest uninterrupted attention this
+ * interface ever gets. Spending it on a spinner wastes the best teaching moment
+ * in the demo, so the panel below the track explains the running stage - and
+ * these are the real mechanisms, not progress-bar filler. */
+const DETAIL: [string, string][] = [
+  ['Reading the capture',
+   'CSV, JSONL and XML all parse to one internal frame, and all three are verified to ' +
+   'produce identical clean-row counts. Rows that fail validation are quarantined with a ' +
+   'named reason and counted in the receipt — never silently dropped, because an analyst ' +
+   'has to know what was excluded before trusting what was kept.'],
+  ['Locating every peer',
+   'Each IP resolves to an ASN, a country and an infrastructure class from a DB-IP Lite ' +
+   'database bundled inside the image. No lookup leaves this machine. Infrastructure class ' +
+   'matters later: it is what decides whether an attribution is trustworthy or suppressed.'],
+  ['Addresses become actors',
+   'Bitcoin has addresses, not people. But if one transaction spends from five addresses at ' +
+   'once, whoever signed it held all five private keys — so those addresses are one actor. ' +
+   'Chain those merges and 1.8 million addresses collapse into roughly 830,000 actors. ' +
+   'Verified on real Bitcoin: addresses this groups share a label 99.79% of the time.'],
+  ['Drawing the money',
+   'Actor-to-actor flow, PageRank and sampled betweenness, plus the sparse entity × IP ' +
+   'co-occurrence matrix the attribution test needs. Sparse, not dense — that is what keeps ' +
+   '2.4 million rows inside laptop memory.'],
+  ['Describing each actor',
+   '132 numbers per actor: chain behaviour, timing rhythm, network posture, position in the ' +
+   'money graph, and 64 learned Node2Vec dimensions. The most expensive stage by far, and ' +
+   'fully vectorised — it is expressed as Polars expressions so the whole matrix computes in ' +
+   'parallel rather than row by row.'],
+  ['Scoring every actor',
+   'Gradient-boosted trees score all of them, then isotonic regression calibrates the output ' +
+   'so that 0.90 means roughly a 90% chance rather than merely "higher than 0.80". Measured ' +
+   'calibration error on the bulk profile: 0.0405.'],
+  ['Who was it?',
+   'For every actor–IP pair, a hypergeometric test asks whether they co-occur more than ' +
+   'chance predicts given how much traffic each generates — with Benjamini–Hochberg control ' +
+   'across all pairs at α = 0.01. Where the evidence points at shared infrastructure the ' +
+   'attribution is suppressed rather than guessed. On the bulk run, 75% were suppressed.'],
+  ['Why it was flagged',
+   'Exact SHAP values — TreeExplainer, not an approximation — for the alerts actually shown. ' +
+   'Sixty of them, not 830,000: there is no reason to explain alerts nobody will open. The ' +
+   'top contributions become an English narrative an analyst can act on.'],
+  ['Writing the case files',
+   'Alerts, evidence chains with real TXIDs, attributions, SHAP rows and the run provenance ' +
+   'all go to DuckDB — the input SHA-256, the seed, the feature version, the model backend ' +
+   'and the git commit, so every figure traces back to an exact input and an exact model.'],
+];
+
 export function Processing({ job }: { job: Job }) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
@@ -71,7 +120,7 @@ export function Processing({ job }: { job: Job }) {
              ' color-mix(in srgb, var(--paper) 10%, transparent) 72%, transparent 90%)' }} />
 
       <div className="relative flex-1 min-h-0 overflow-y-auto">
-        <div className="min-h-full flex items-center justify-center p-6">
+        <div className="min-h-full flex items-center justify-center px-6 py-4">
       <div className="w-full max-w-5xl">
         <div className="flex items-start gap-6 mb-3">
           <div className="min-w-0">
@@ -79,10 +128,10 @@ export function Processing({ job }: { job: Job }) {
               <h1 className="display text-ink">scoring</h1>
               <span className="mono text-md text-ink-soft break-all">{job.file}</span>
             </div>
-            <p className="text-sm text-ink-soft mt-1.5">
+            <p className="text-sm text-ink-soft mt-1">
               Nine stages, on this machine, with no network.
             </p>
-            <div className="flex items-baseline gap-5 mt-3 flex-wrap">
+            <div className="flex items-baseline gap-5 mt-2 flex-wrap">
               <span>
                 <span className="figure text-ink" style={{ fontSize: 30 }}>
                   {elapsed.toFixed(1)}
@@ -168,6 +217,52 @@ export function Processing({ job }: { job: Job }) {
               );
             })}
           </ol>
+        </div>
+
+        {/* The running stage, explained at readable size. This is what used to
+            be empty space, and it is the longest uninterrupted attention this
+            interface ever gets - a spinner would waste it. */}
+        <div className="mt-4 border-t border-rule pt-4 grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-5">
+          <div key={idx} className="anim-rise min-w-0">
+            <div className="flex items-baseline gap-2.5 mb-1.5">
+              <span className="colhead text-chain">now running</span>
+              <span className="mono text-2xs text-ink-dim">
+                stage {Math.min(idx + 1, STAGES.length)} of {STAGES.length}
+              </span>
+            </div>
+            <h2 className="font-cond font-bold text-ink tracking-tight"
+                style={{ fontSize: 'clamp(18px,2vw,24px)' }}>
+              {DETAIL[idx]?.[0] ?? ''}
+            </h2>
+            <p className="text-sm text-ink-soft leading-normal mt-1.5 max-w-[82ch]">
+              {DETAIL[idx]?.[1] ?? ''}
+            </p>
+          </div>
+
+          <div className="shrink-0 flex md:flex-col gap-x-8 gap-y-3 md:border-l md:border-rule md:pl-5">
+            <div>
+              <span className="colhead block">completed</span>
+              <span className="mono text-md font-semibold text-confirm">
+                {Object.keys(durations).length}
+                <span className="text-ink-dim">/{STAGES.length}</span>
+              </span>
+            </div>
+            <div>
+              <span className="colhead block">slowest so far</span>
+              <span className="mono text-md font-semibold text-ink">
+                {(() => {
+                  const e = Object.entries(durations);
+                  if (!e.length) return '—';
+                  const [n, d] = e.reduce((a, b) => (b[1] > a[1] ? b : a));
+                  return `${n} ${d.toFixed(2)}s`;
+                })()}
+              </span>
+            </div>
+            <div>
+              <span className="colhead block">network</span>
+              <span className="mono text-md font-semibold text-confirm">none</span>
+            </div>
+          </div>
         </div>
 
       </div>
