@@ -8,8 +8,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ThemeToggle } from './ThemeToggle';
 import { api, fmt, type Job, type Run } from './api';
-import { Button, IconUpload, Notice, Spinner } from './ui';
+import { IconUpload, Notice, Spinner } from './ui';
 import { AlertQueue } from './components/AlertQueue';
+import { StartScreen } from './components/StartScreen';
+import { Processing } from './components/Processing';
 import { CaseFile } from './components/CaseFile';
 import { ModelPanel } from './components/ModelPanel';
 import { Provenance } from './components/Provenance';
@@ -33,6 +35,7 @@ export default function App() {
   const [job, setJob] = useState<Job | null>(null);
   const [health, setHealth] = useState<any>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [entered, setEntered] = useState(false);
 
   useEffect(() => {
     const onHash = () => setView(parseHash());
@@ -67,10 +70,6 @@ export default function App() {
     setJob({ job_id, state: 'running', stage: 'ingest', file: f.name });
   }
 
-  async function runSample() {
-    const { job_id } = await api.startRun();
-    setJob({ job_id, state: 'running', stage: 'ingest', file: 'bundled sample' });
-  }
 
   const running = job?.state === 'running';
   const stageIdx = running ? Math.max(0, STAGES.indexOf(job?.stage || 'ingest')) : -1;
@@ -167,21 +166,14 @@ export default function App() {
 
       {/* ---------------- body ---------------- */}
       <main className="flex-1 min-h-0">
-        {!run && !running ? (
-          <div className="p-4 max-w-3xl">
-            <Notice title="No capture scored yet">
-              <p className="mb-3">
-                Load a CSV, JSON or XML capture to score it, or run the bundled sample.
-                The system is fully offline: no API, no node, no cloud model.
-              </p>
-              <div className="flex gap-2">
-                <Button onClick={runSample}>run bundled sample</Button>
-                <Button variant="ghost" onClick={() => fileRef.current?.click()}>
-                  choose a file
-                </Button>
-              </div>
-            </Notice>
-          </div>
+        {running && job ? (
+          <Processing job={job} />
+        ) : !entered ? (
+          <StartScreen
+            onStarted={(job_id, file) => { setEntered(true); setJob({ job_id, state: 'running', stage: 'ingest', file }); }}
+            lastRun={run ? { rows: run.n_rows, file: run.receipt?.file || '' } : null}
+            onViewLast={() => { setEntered(true); go('alerts'); }}
+          />
         ) : view.entity ? (
           <CaseFile entity={view.entity} onBack={() => go('alerts')} />
         ) : view.tab === 'model' ? (
