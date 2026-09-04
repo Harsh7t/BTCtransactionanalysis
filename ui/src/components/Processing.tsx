@@ -34,7 +34,7 @@ export function Processing({ job }: { job: Job }) {
   const idx = Math.max(0, STAGES.findIndex(([s]) => s === (job.stage || 'ingest')));
 
   return (
-    <div className="h-full flex items-center justify-center p-6">
+    <div className="flex-1 min-h-0 flex items-center justify-center p-6 overflow-auto">
       <div className="w-full max-w-3xl">
         <div className="flex items-baseline gap-3 mb-1">
           <h1 className="display text-ink">scoring</h1>

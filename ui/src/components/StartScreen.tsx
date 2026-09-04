@@ -54,7 +54,7 @@ export function StartScreen({ onStarted, lastRun, onViewLast }: {
   }, [onStarted]);
 
   return (
-    <div className="relative h-full overflow-hidden">
+    <div className="relative flex-1 min-h-0 overflow-hidden flex flex-col">
       {/* The field sits behind everything and fills the screen. It is the
           product's own problem drawn live - see Propagation.tsx - and the
           pointer is a listening vantage point, so the background is the one
@@ -74,8 +74,9 @@ export function StartScreen({ onStarted, lastRun, onViewLast }: {
              'linear-gradient(to top, var(--paper) 0%,' +
              ' color-mix(in srgb, var(--paper) 55%, transparent) 55%, transparent 100%)' }} />
 
-      <div className="relative h-full flex flex-col justify-center px-6 sm:px-10 lg:px-14
-                      max-w-[46rem] pointer-events-none">
+      <div className="relative flex-1 min-h-0 overflow-y-auto">
+        <div className="min-h-full flex flex-col justify-center px-6 sm:px-10 lg:px-14 py-10
+                        max-w-[46rem] pointer-events-none">
         <div className="pointer-events-auto">
           <h1 className="display text-ink anim-rise"
               style={{ fontSize: 'clamp(32px,5vw,60px)' }}>
@@ -182,10 +183,11 @@ export function StartScreen({ onStarted, lastRun, onViewLast }: {
           )}
         </div>
         </div>
+        </div>
       </div>
 
       {/* The one instruction the field needs, placed where the field is. */}
-      <div className="absolute right-6 bottom-5 max-w-[34ch] hidden lg:block pointer-events-none
+      <div className="absolute right-6 bottom-5 max-w-[34ch] hidden xl:block pointer-events-none
                       text-right anim-rise" style={{ animationDelay: '420ms' }}>
         <div className="colhead mb-1">live · randomised diffusion</div>
         <p className="text-2xs text-ink-soft leading-relaxed">

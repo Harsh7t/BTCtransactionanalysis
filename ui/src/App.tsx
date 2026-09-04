@@ -73,10 +73,11 @@ export default function App() {
 
 
   const running = job?.state === 'running';
+  const showingStart = !running && (!entered || (!runReady && view.tab !== 'model'));
   const stageIdx = running ? Math.max(0, STAGES.indexOf(job?.stage || 'ingest')) : -1;
 
   return (
-    <div className="min-h-full flex flex-col">
+    <div className={`flex flex-col ${showingStart || running ? "h-full" : "min-h-full"}`}>
       {/* ---------------- chrome ---------------- */}
       {/* `min-w-0` on the flex children and a shrinking wordmark: without them the
           three groups summed to 489px inside a 375px viewport, pushing the OFFLINE
@@ -177,10 +178,10 @@ export default function App() {
       )}
 
       {/* ---------------- body ---------------- */}
-      <main className="flex-1 min-h-0">
+      <main className="flex-1 min-h-0 flex flex-col">
         {running && job ? (
           <Processing job={job} />
-        ) : !entered || (!runReady && view.tab !== 'model') ? (
+        ) : showingStart ? (
           <StartScreen
             onStarted={(job_id, file) => { setEntered(true); setJob({ job_id, state: 'running', stage: 'ingest', file }); }}
             lastRun={run ? { rows: run.n_rows, file: run.receipt?.file || '' } : null}

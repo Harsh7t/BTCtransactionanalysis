@@ -264,13 +264,19 @@ export function Propagation({ className = '' }: { className?: string }) {
     const leave = () => { ptr.x = -9999; ptr.y = -9999; };
     window.addEventListener('pointermove', move, { passive: true });
     window.addEventListener('pointerleave', leave);
+    let resizeT = 0;
     const ro = new ResizeObserver(() => {
       const r = cv!.getBoundingClientRect();
-      if (Math.abs(r.width - w) > 1 || Math.abs(r.height - h) > 1) layout();
+      if (Math.abs(r.width - w) < 2 && Math.abs(r.height - h) < 2) return;
+      // Rebuilding the lattice on every observer callback means the network
+      // reshuffles continuously for the whole length of a drag-resize. Settle
+      // first, then rebuild once.
+      clearTimeout(resizeT);
+      resizeT = window.setTimeout(layout, 140);
     });
     ro.observe(cv);
     return () => {
-      cancelAnimationFrame(raf); ro.disconnect();
+      cancelAnimationFrame(raf); ro.disconnect(); clearTimeout(resizeT);
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerleave', leave);
     };
