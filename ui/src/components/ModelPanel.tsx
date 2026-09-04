@@ -85,8 +85,14 @@ export function ModelPanel() {
           backend <b className="text-ink">{man.backend}</b> · {man.n_features} features
           · {Number(man.n_train_rows).toLocaleString()} training entities
         </span>
+        {/* A filled amber pill. It used to inherit white from the dark strip;
+            with the strip tokenised it inherited ink and fell to 2.98:1.
+            --surface inverts with the theme, so it reads on the dark amber of
+            light mode and the light amber of dark mode alike. */}
         <span className="ml-auto mono text-2xs px-2 py-0.5"
-              style={{ background: 'var(--fusion)' }}>make reproduce</span>
+              style={{ background: 'var(--fusion)', color: 'var(--surface)' }}>
+          make reproduce
+        </span>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
