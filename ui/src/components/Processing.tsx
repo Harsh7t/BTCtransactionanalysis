@@ -10,6 +10,7 @@
  */
 import { useEffect, useState } from 'react';
 import type { Job } from '../api';
+import { Propagation } from './Propagation';
 
 const STAGES: [string, string][] = [
   ['ingest', 'parse CSV / JSONL / XML, quarantine bad rows'],
@@ -34,7 +35,24 @@ export function Processing({ job }: { job: Job }) {
   const idx = Math.max(0, STAGES.findIndex(([s]) => s === (job.stage || 'ingest')));
 
   return (
-    <div className="flex-1 min-h-0 flex items-center justify-center p-6 overflow-auto">
+    <div className="relative flex-1 min-h-0 overflow-hidden flex flex-col">
+      {/* The same field as the landing screen, still running. It is not filler:
+          the pipeline is at this moment resolving exactly this - announcements
+          spread across peers - into actors and attributions, and the field
+          keeps the reason for the wait on screen while it happens. */}
+      <Propagation className="absolute inset-0 w-full h-full" />
+
+      {/* Radial rather than the landing's horizontal veil, because this layout
+          is centred: the ground is quiet under the stage list and opens out to
+          the field at the edges. */}
+      <div aria-hidden className="absolute inset-0 pointer-events-none"
+           style={{ background:
+             'radial-gradient(ellipse 46% 52% at 50% 46%, var(--paper) 0%,' +
+             ' color-mix(in srgb, var(--paper) 60%, transparent) 42%,' +
+             ' color-mix(in srgb, var(--paper) 10%, transparent) 72%, transparent 90%)' }} />
+
+      <div className="relative flex-1 min-h-0 overflow-y-auto">
+        <div className="min-h-full flex items-center justify-center p-6">
       <div className="w-full max-w-3xl">
         <div className="flex items-baseline gap-3 mb-1">
           <h1 className="display text-ink">scoring</h1>
@@ -72,6 +90,8 @@ export function Processing({ job }: { job: Job }) {
         <div className="mt-3 h-0.5 bg-surface-3 overflow-hidden">
           <div className="h-full bg-chain transition-all duration-300"
                style={{ width: `${((idx + 1) / STAGES.length) * 100}%` }} />
+        </div>
+      </div>
         </div>
       </div>
     </div>
