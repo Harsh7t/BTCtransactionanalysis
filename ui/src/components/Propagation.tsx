@@ -31,7 +31,7 @@ type Wave = { origin: number; born: number; ring: number };
 
 const DENSITY = 6200;         // one node per N px² - keeps density constant at any size
 const MAX_NODES = 200;        // full-bleed needs a real mesh; 49 nodes read as dust
-const VANTAGE_R = 190;        // observation radius of the pointer, in px
+const VANTAGE_R = 230;        // reach of the pointer's influence, in px - a falloff, not an edge
 
 export function Propagation({ className = '' }: { className?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -131,7 +131,8 @@ export function Propagation({ className = '' }: { className?: string }) {
         n.x = n.hx + Math.sin(now / 5200 + n.phase) * 7;
         n.y = n.hy + Math.cos(now / 6100 + n.phase * 1.3) * 7;
         const d = Math.hypot(n.x - ptr.x, n.y - ptr.y);
-        const want = ptr.on * Math.max(0, 1 - d / VANTAGE_R);
+        const k = Math.max(0, 1 - d / VANTAGE_R);
+        const want = ptr.on * k * k * (3 - 2 * k);   // smoothstep: no hard rim
         n.seen += (want - n.seen) * Math.min(1, dt / 90);   // eased, never snapping
         void i;
       });
@@ -216,24 +217,19 @@ export function Propagation({ className = '' }: { className?: string }) {
       // the argument the Model page makes with a curve.
       if (ptr.on > 0.01) {
         const g = ctx!.createRadialGradient(ptr.x, ptr.y, 0, ptr.x, ptr.y, VANTAGE_R);
-        g.addColorStop(0, withAlpha(chain, 0.16 * ptr.on));
-        g.addColorStop(0.55, withAlpha(chain, 0.05 * ptr.on));
+        g.addColorStop(0, withAlpha(chain, 0.17 * ptr.on));
+        g.addColorStop(0.4, withAlpha(chain, 0.075 * ptr.on));
+        g.addColorStop(0.72, withAlpha(chain, 0.018 * ptr.on));
         g.addColorStop(1, withAlpha(chain, 0));
         ctx!.globalAlpha = 1; ctx!.fillStyle = g;
         ctx!.beginPath(); ctx!.arc(ptr.x, ptr.y, VANTAGE_R, 0, Math.PI * 2); ctx!.fill();
 
-        // Coverage boundary, breathing slowly so it reads as listening.
-        const pulse = 1 + Math.sin(now / 900) * 0.012;
-        ctx!.beginPath(); ctx!.arc(ptr.x, ptr.y, VANTAGE_R * pulse, 0, Math.PI * 2);
-        ctx!.strokeStyle = chain; ctx!.lineWidth = 1.2;
-        ctx!.globalAlpha = ptr.on * 0.4; ctx!.setLineDash([3, 5]); ctx!.stroke();
-        ctx!.setLineDash([]);
-
-        ctx!.beginPath(); ctx!.arc(ptr.x, ptr.y, 7, 0, Math.PI * 2);
-        ctx!.strokeStyle = chain; ctx!.lineWidth = 1.6;
-        ctx!.globalAlpha = ptr.on * 0.9; ctx!.stroke();
-        ctx!.beginPath(); ctx!.arc(ptr.x, ptr.y, 2.2, 0, Math.PI * 2);
-        ctx!.fillStyle = chain; ctx!.globalAlpha = ptr.on; ctx!.fill();
+        // NO drawn boundary. A dashed ring states a hard edge the effect does not
+        // actually have - what a vantage point hears falls away with distance, it
+        // does not stop at a line. The gradient above and the per-node falloff
+        // are the whole story; drawing a circle on top only contradicted them.
+        ctx!.beginPath(); ctx!.arc(ptr.x, ptr.y, 3.4, 0, Math.PI * 2);
+        ctx!.fillStyle = chain; ctx!.globalAlpha = ptr.on * 0.9; ctx!.fill();
       }
       ctx!.globalAlpha = 1;
     }

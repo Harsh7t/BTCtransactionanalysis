@@ -57,23 +57,23 @@ export function CaseFile({ entity, onBack }: { entity: string; onBack: () => voi
   return (
     <div className="p-3">
       {/* --- case header ---------------------------------------------------- */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 bg-chrome text-white px-3 py-1.5 sm:h-11 mb-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-rule px-1 py-1.5 sm:h-11 mb-3">
         <button onClick={onBack}
-                className="text-xs flex items-center gap-1.5 hover:opacity-70 cursor-pointer transition-opacity duration-150">
+                className="text-xs flex items-center gap-1.5 text-ink-soft hover:text-ink cursor-pointer transition-colors duration-150">
           <IconBack /> alerts
         </button>
-        <span className="w-px h-5 bg-white/25" />
+        <span className="w-px h-5 bg-rule" />
         <span className="font-cond font-extrabold uppercase text-lg tracking-tighter">
           Case file — {a.entity}
         </span>
-        <span className="text-2xs text-white/55 hidden sm:inline">rank <span className="mono">{a.rank}</span> · run <span className="mono">{d.run_id}</span></span>
+        <span className="text-2xs text-ink-dim hidden sm:inline">rank <span className="mono">{a.rank}</span> · run <span className="mono">{d.run_id}</span></span>
         <div className="ml-auto flex flex-wrap items-center gap-1.5 no-print">
           {verdict
             ? <Tag layer={verdict === 'confirmed' ? 'confirm' : 'data'}>{verdict}</Tag>
             : null}
           <a href={api.exportUrl(entity)} target="_blank" rel="noreferrer"
-             className="text-xs px-2.5 h-7 inline-flex items-center gap-1.5 border border-white/35
-                        text-white hover:bg-white/10 transition-colors duration-150">
+             className="text-xs px-2.5 h-7 inline-flex items-center gap-1.5 border border-rule
+                        text-ink-soft hover:text-ink hover:border-ink transition-colors duration-150">
             <IconExport /> export
           </a>
           <button onClick={() => decide('confirmed')} disabled={busy}
@@ -85,7 +85,8 @@ export function CaseFile({ entity, onBack }: { entity: string; onBack: () => voi
           </button>
           <button onClick={() => decide('dismissed')} disabled={busy}
                   className="text-xs px-2.5 h-7 inline-flex items-center gap-1.5 border
-                             border-white/35 text-white hover:bg-white/10 transition-colors duration-150
+                             border-rule text-ink-soft hover:text-ink hover:border-ink
+                             transition-colors duration-150
                              disabled:opacity-40 disabled:cursor-default">
             <IconX /> dismiss
           </button>

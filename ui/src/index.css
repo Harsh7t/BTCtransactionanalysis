@@ -297,6 +297,18 @@ input[type='range']::-moz-range-thumb {
   box-shadow: inset 2px 0 0 0 var(--active);
 }
 
+@keyframes ping-soft {
+  0%   { transform: scale(1);   opacity: 1 }
+  70%  { transform: scale(2.6); opacity: 0 }
+  100% { transform: scale(2.6); opacity: 0 }
+}
+.animate-ping-soft { position: relative; }
+.animate-ping-soft::after {
+  content: ''; position: absolute; inset: 0; border-radius: 9999px;
+  background: var(--chain);
+  animation: ping-soft 1.6s cubic-bezier(0, 0, .2, 1) infinite;
+}
+
 /* --- Panel weight ---------------------------------------------------------
    Three weights, and the accent is capped at one panel per screen. Previously
    30 panels shared one hairline treatment and 8 of 15 on the model screen wore
@@ -340,6 +352,7 @@ input[type='range']::-moz-range-thumb {
   .anim-bar  { transform: none !important; }
   .anim-rise { opacity: 1 !important; transform: none !important; }
   .anim-draw { stroke-dasharray: none !important; stroke-dashoffset: 0 !important; }
+  .animate-ping-soft::after { display: none !important; }
 }
 
 @media print {

@@ -75,7 +75,7 @@ export function StartScreen({ onStarted, lastRun, onViewLast }: {
              ' color-mix(in srgb, var(--paper) 55%, transparent) 55%, transparent 100%)' }} />
 
       <div className="relative flex-1 min-h-0 overflow-y-auto">
-        <div className="min-h-full flex flex-col justify-center px-6 sm:px-10 lg:px-14 py-10
+        <div className="min-h-full flex flex-col px-6 sm:px-10 lg:px-14 pt-10 sm:pt-14 pb-12
                         max-w-[46rem] pointer-events-none">
         <div className="pointer-events-auto">
           <h1 className="display text-ink anim-rise"

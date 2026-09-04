@@ -8,9 +8,10 @@
  * The stage names are the pipeline's own, and the timings are real - the API
  * reports which stage is executing, so nothing here is a fake progress bar.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Job } from '../api';
 import { Propagation } from './Propagation';
+import { Sonar } from './Sonar';
 
 const STAGES: [string, string][] = [
   ['ingest', 'parse CSV / JSONL / XML, quarantine bad rows'],
@@ -34,6 +35,23 @@ export function Processing({ job }: { job: Job }) {
 
   const idx = Math.max(0, STAGES.findIndex(([s]) => s === (job.stage || 'ingest')));
 
+  // The API reports which stage is running and nothing else - no row counts
+  // until the receipt arrives - so the per-stage durations are timed here, on
+  // the transition. They are real measurements of real work; inventing a
+  // throughput number to fill the panel would be worse than an empty one.
+  const [durations, setDurations] = useState<Record<string, number>>({});
+  const markRef = useRef({ stage: -1, at: 0 });
+  useEffect(() => {
+    const now = performance.now();
+    const m = markRef.current;
+    if (m.stage === -1) { markRef.current = { stage: idx, at: now }; return; }
+    if (idx !== m.stage) {
+      const name = STAGES[m.stage]?.[0];
+      if (name) setDurations((d) => ({ ...d, [name]: (now - m.at) / 1000 }));
+      markRef.current = { stage: idx, at: now };
+    }
+  }, [idx]);
+
   return (
     <div className="relative flex-1 min-h-0 overflow-hidden flex flex-col">
       {/* The same field as the landing screen, still running. It is not filler:
@@ -54,43 +72,97 @@ export function Processing({ job }: { job: Job }) {
       <div className="relative flex-1 min-h-0 overflow-y-auto">
         <div className="min-h-full flex items-center justify-center p-6">
       <div className="w-full max-w-3xl">
-        <div className="flex items-baseline gap-3 mb-1">
-          <h1 className="display text-ink">scoring</h1>
-          <span className="mono text-md text-ink-soft">{job.file}</span>
+        <div className="flex items-start gap-6 mb-7">
+          <div className="min-w-0">
+            <div className="flex items-baseline gap-3 flex-wrap">
+              <h1 className="display text-ink">scoring</h1>
+              <span className="mono text-md text-ink-soft break-all">{job.file}</span>
+            </div>
+            <p className="text-sm text-ink-soft mt-1.5">
+              Nine stages, on this machine, with no network.
+            </p>
+            <div className="flex items-baseline gap-5 mt-3 flex-wrap">
+              <span>
+                <span className="figure text-ink" style={{ fontSize: 30 }}>
+                  {elapsed.toFixed(1)}
+                </span>
+                <span className="mono text-sm text-ink-soft">s</span>
+                <span className="colhead block mt-0.5">elapsed</span>
+              </span>
+              <span>
+                <span className="figure text-chain" style={{ fontSize: 30 }}>
+                  {Math.min(idx + 1, STAGES.length)}
+                </span>
+                <span className="mono text-sm text-ink-soft">/{STAGES.length}</span>
+                <span className="colhead block mt-0.5">stage</span>
+              </span>
+            </div>
+          </div>
+          <div className="ml-auto shrink-0 hidden sm:block">
+            <Sonar stage={idx} />
+          </div>
         </div>
-        <p className="text-sm text-ink-soft mb-6">
-          Nine stages, on this machine, with no network. Elapsed{' '}
-          <span className="mono text-ink font-semibold">{elapsed.toFixed(1)}s</span>.
-        </p>
 
-        <ol className="border border-rule bg-surface">
+        <ol className="relative">
           {STAGES.map(([name, what], i) => {
             const done = i < idx, live = i === idx;
+            const isLast = i === STAGES.length - 1;
             return (
-              <li key={name}
-                  className={`flex items-center gap-3 px-3.5 py-2 border-b border-rule-soft
-                              last:border-0 ${live ? 'bg-chain-wash' : ''}`}>
+              <li key={name} className="relative flex gap-3.5 pl-0.5">
+                {/* The rail. Two stacked segments: a dormant track and a chain
+                    fill whose height transitions, so progress GROWS down the
+                    page instead of snapping between rows. */}
+                {!isLast && (
+                  <span aria-hidden className="absolute left-[9px] top-5 w-0.5 h-[calc(100%-4px)]
+                                               bg-rule-soft overflow-hidden">
+                    <span className="block w-full bg-chain transition-[height] duration-700 ease-out"
+                          style={{ height: done ? '100%' : live ? '45%' : '0%' }} />
+                  </span>
+                )}
+
                 <span aria-hidden
-                      className={`w-2 h-2 shrink-0 ${live ? 'blink' : ''}`}
-                      style={{ background: done ? 'var(--confirm)'
-                        : live ? 'var(--chain)' : 'var(--rule)' }} />
-                <span className={`font-cond font-bold uppercase tracking-tight text-sm w-24 shrink-0
-                                  ${done || live ? 'text-ink' : 'text-ink-dim'}`}>
-                  {name}
+                      className={`relative z-10 mt-1 w-[19px] h-[19px] shrink-0 rounded-full border-2
+                                  flex items-center justify-center transition-all duration-500
+                                  ${done ? 'border-chain bg-chain'
+                                    : live ? 'border-chain bg-surface'
+                                           : 'border-rule bg-surface'}`}>
+                  {done ? (
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none"
+                         stroke="var(--surface)" strokeWidth="2"
+                         strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2 5.2 L4.1 7.3 L8 3.2" />
+                    </svg>
+                  ) : live ? (
+                    <span className="w-[7px] h-[7px] rounded-full bg-chain animate-ping-soft" />
+                  ) : null}
                 </span>
-                <span className={`text-2xs ${live ? 'text-ink-soft' : 'text-ink-dim'}`}>
-                  {what}
-                </span>
-                {done && <span className="ml-auto text-2xs text-confirm shrink-0">done</span>}
+
+                <div className={`flex-1 min-w-0 pb-5 ${isLast ? 'pb-0' : ''}`}>
+                  <div className="flex items-baseline gap-2.5 flex-wrap">
+                    <span className={`font-cond font-bold uppercase tracking-tight text-sm
+                                      transition-colors duration-300
+                                      ${done || live ? 'text-ink' : 'text-ink-dim'}`}>
+                      {name}
+                    </span>
+                    {durations[name] != null && (
+                      <span className="mono text-2xs text-confirm">
+                        {durations[name].toFixed(2)}s
+                      </span>
+                    )}
+                    {live && (
+                      <span className="mono text-2xs text-chain">running</span>
+                    )}
+                  </div>
+                  <div className={`text-2xs mt-0.5 transition-colors duration-300
+                                   ${live ? 'text-ink-soft' : 'text-ink-dim'}`}>
+                    {what}
+                  </div>
+                </div>
               </li>
             );
           })}
         </ol>
 
-        <div className="mt-3 h-0.5 bg-surface-3 overflow-hidden">
-          <div className="h-full bg-chain transition-all duration-300"
-               style={{ width: `${((idx + 1) / STAGES.length) * 100}%` }} />
-        </div>
       </div>
         </div>
       </div>

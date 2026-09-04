@@ -75,14 +75,14 @@ export function ModelPanel() {
 
     </div>
       {/* provenance strip */}
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 bg-chrome text-white px-3.5 py-2">
-        <span className="font-cond font-bold uppercase text-md">Model panel</span>
-        <span className="mono text-2xs text-white/70">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 bg-surface-2 border-y border-rule px-3.5 py-2">
+        <span className="font-cond font-bold text-md text-ink">Model panel</span>
+        <span className="mono text-2xs text-ink-soft">
           artifacts/{man.version} · feature_version {man.feature_version} · seed {man.seed}
           {' '}· git {String(man.provenance?.git_sha ?? '—')}
         </span>
-        <span className="mono text-2xs text-white/70">
-          backend <b className="text-white">{man.backend}</b> · {man.n_features} features
+        <span className="mono text-2xs text-ink-soft">
+          backend <b className="text-ink">{man.backend}</b> · {man.n_features} features
           · {Number(man.n_train_rows).toLocaleString()} training entities
         </span>
         <span className="ml-auto mono text-2xs px-2 py-0.5"

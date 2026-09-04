@@ -46,7 +46,7 @@ export function ThemeToggle() {
 
   return (
     <div role="radiogroup" aria-label="Colour theme"
-         className="flex items-center border border-white/25">
+         className="flex items-center border border-rule">
       {OPTIONS.map((o) => {
         const on = theme === o.key;
         return (
@@ -54,7 +54,7 @@ export function ThemeToggle() {
                   onClick={() => setTheme(o.key)}
                   className={`w-7 h-7 inline-flex items-center justify-center cursor-pointer
                               transition-colors duration-150
-                              ${on ? 'bg-white/15 text-white' : 'text-white/45 hover:text-white/80'}`}>
+                              ${on ? 'bg-surface-3 text-ink' : 'text-ink-dim hover:text-ink-soft'}`}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none"
                  stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"
                  aria-hidden focusable="false">
