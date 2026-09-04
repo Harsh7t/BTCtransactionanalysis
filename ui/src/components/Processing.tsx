@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Job } from '../api';
 import { Propagation } from './Propagation';
 import { Sonar } from './Sonar';
+import { StageTrack } from './StageTrack';
 
 const STAGES: [string, string][] = [
   ['ingest', 'parse CSV / JSONL / XML, quarantine bad rows'],
@@ -71,8 +72,8 @@ export function Processing({ job }: { job: Job }) {
 
       <div className="relative flex-1 min-h-0 overflow-y-auto">
         <div className="min-h-full flex items-center justify-center p-6">
-      <div className="w-full max-w-3xl">
-        <div className="flex items-start gap-6 mb-7">
+      <div className="w-full max-w-5xl">
+        <div className="flex items-start gap-6 mb-3">
           <div className="min-w-0">
             <div className="flex items-baseline gap-3 flex-wrap">
               <h1 className="display text-ink">scoring</h1>
@@ -99,69 +100,75 @@ export function Processing({ job }: { job: Job }) {
             </div>
           </div>
           <div className="ml-auto shrink-0 hidden sm:block">
-            <Sonar stage={idx} />
+            <Sonar stage={idx} size={116} />
           </div>
         </div>
 
-        <ol className="relative">
-          {STAGES.map(([name, what], i) => {
-            const done = i < idx, live = i === idx;
-            const isLast = i === STAGES.length - 1;
-            return (
-              <li key={name} className="relative flex gap-3.5 pl-0.5">
-                {/* The rail. Two stacked segments: a dormant track and a chain
-                    fill whose height transitions, so progress GROWS down the
-                    page instead of snapping between rows. */}
-                {!isLast && (
-                  <span aria-hidden className="absolute left-[9px] top-5 w-0.5 h-[calc(100%-4px)]
-                                               bg-rule-soft overflow-hidden">
-                    <span className="block w-full bg-chain transition-[height] duration-700 ease-out"
-                          style={{ height: done ? '100%' : live ? '45%' : '0%' }} />
-                  </span>
-                )}
+        <div className="hidden lg:block">
+          <StageTrack stages={STAGES} idx={idx} durations={durations} />
+        </div>
 
-                <span aria-hidden
-                      className={`relative z-10 mt-1 w-[19px] h-[19px] shrink-0 rounded-full border-2
-                                  flex items-center justify-center transition-all duration-500
-                                  ${done ? 'border-chain bg-chain'
-                                    : live ? 'border-chain bg-surface'
-                                           : 'border-rule bg-surface'}`}>
-                  {done ? (
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none"
-                         stroke="var(--surface)" strokeWidth="2"
-                         strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M2 5.2 L4.1 7.3 L8 3.2" />
-                    </svg>
-                  ) : live ? (
-                    <span className="w-[7px] h-[7px] rounded-full bg-chain animate-ping-soft" />
-                  ) : null}
-                </span>
-
-                <div className={`flex-1 min-w-0 pb-5 ${isLast ? 'pb-0' : ''}`}>
-                  <div className="flex items-baseline gap-2.5 flex-wrap">
-                    <span className={`font-cond font-bold uppercase tracking-tight text-sm
-                                      transition-colors duration-300
-                                      ${done || live ? 'text-ink' : 'text-ink-dim'}`}>
-                      {name}
+        <div className="lg:hidden">
+          <ol className="relative">
+            {STAGES.map(([name, what], i) => {
+              const done = i < idx, live = i === idx;
+              const isLast = i === STAGES.length - 1;
+              return (
+                <li key={name} className="relative flex gap-3.5 pl-0.5">
+                  {/* The rail. Two stacked segments: a dormant track and a chain
+                      fill whose height transitions, so progress GROWS down the
+                      page instead of snapping between rows. */}
+                  {!isLast && (
+                    <span aria-hidden className="absolute left-[9px] top-5 w-0.5 h-[calc(100%-4px)]
+                                                 bg-rule-soft overflow-hidden">
+                      <span className="block w-full bg-chain transition-[height] duration-700 ease-out"
+                            style={{ height: done ? '100%' : live ? '45%' : '0%' }} />
                     </span>
-                    {durations[name] != null && (
-                      <span className="mono text-2xs text-confirm">
-                        {durations[name].toFixed(2)}s
+                  )}
+
+                  <span aria-hidden
+                        className={`relative z-10 mt-1 w-[19px] h-[19px] shrink-0 rounded-full border-2
+                                    flex items-center justify-center transition-all duration-500
+                                    ${done ? 'border-chain bg-chain'
+                                      : live ? 'border-chain bg-surface'
+                                             : 'border-rule bg-surface'}`}>
+                    {done ? (
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none"
+                           stroke="var(--surface)" strokeWidth="2"
+                           strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M2 5.2 L4.1 7.3 L8 3.2" />
+                      </svg>
+                    ) : live ? (
+                      <span className="w-[7px] h-[7px] rounded-full bg-chain animate-ping-soft" />
+                    ) : null}
+                  </span>
+
+                  <div className={`flex-1 min-w-0 pb-5 ${isLast ? 'pb-0' : ''}`}>
+                    <div className="flex items-baseline gap-2.5 flex-wrap">
+                      <span className={`font-cond font-bold uppercase tracking-tight text-sm
+                                        transition-colors duration-300
+                                        ${done || live ? 'text-ink' : 'text-ink-dim'}`}>
+                        {name}
                       </span>
-                    )}
-                    {live && (
-                      <span className="mono text-2xs text-chain">running</span>
-                    )}
+                      {durations[name] != null && (
+                        <span className="mono text-2xs text-confirm">
+                          {durations[name].toFixed(2)}s
+                        </span>
+                      )}
+                      {live && (
+                        <span className="mono text-2xs text-chain">running</span>
+                      )}
+                    </div>
+                    <div className={`text-2xs mt-0.5 transition-colors duration-300
+                                     ${live ? 'text-ink-soft' : 'text-ink-dim'}`}>
+                      {what}
+                    </div>
                   </div>
-                  <div className={`text-2xs mt-0.5 transition-colors duration-300
-                                   ${live ? 'text-ink-soft' : 'text-ink-dim'}`}>
-                    {what}
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ol>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
 
       </div>
         </div>

@@ -115,7 +115,8 @@ export default function App() {
           </span>
         </button>
 
-        <nav className="flex items-center gap-0.5 ml-1 sm:ml-3 min-w-0" aria-label="Main">
+        <nav className="flex items-center gap-0.5 ml-1 sm:ml-3 min-w-0 overflow-x-auto
+                        [scrollbar-width:none] [&::-webkit-scrollbar]{display:none}" aria-label="Main">
           {([['alerts', 'Alerts'], ['model', 'Model'], ['provenance', 'Provenance']] as const)
             .filter(([t]) => t === 'model' || runReady)
             .map(([t, label]) => {
@@ -141,7 +142,7 @@ export default function App() {
             </span>
           )}
           {health && (
-            <span className="text-2xs flex items-center gap-1.5 text-ink-soft"
+            <span className="text-2xs hidden sm:flex items-center gap-1.5 text-ink-soft"
                   title="No network calls are made at any point">
               <span className="w-1.5 h-1.5 inline-block" style={{ background: 'var(--confirm)' }} />
               OFFLINE

@@ -340,7 +340,7 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
                  className="w-40"
                  onChange={(e) => setThreshold(Number(e.target.value))} />
           <span className="mono text-md font-semibold w-9 text-fusion">{threshold.toFixed(2)}</span>
-          <span className="text-2xs text-ink-dim w-28 shrink-0">
+          <span className="text-2xs text-ink-dim min-w-0">
             {visible.length} shown · {suppressed} below
           </span>
         </div>
