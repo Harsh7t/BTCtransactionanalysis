@@ -54,22 +54,42 @@ export function StartScreen({ onStarted, lastRun, onViewLast }: {
   }, [onStarted]);
 
   return (
-    <div className="h-full grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
-      {/* ---------------------------------------------------------- left */}
-      <div className="flex flex-col justify-center px-6 sm:px-10 py-10 max-w-2xl">
-        <h1 className="display text-ink anim-rise" style={{ fontSize: 'clamp(30px,4.4vw,52px)' }}>
-          Network <span className="text-chain">⇄</span> chain<br />attribution
-        </h1>
+    <div className="relative h-full overflow-hidden">
+      {/* The field sits behind everything and fills the screen. It is the
+          product's own problem drawn live - see Propagation.tsx - and the
+          pointer is a listening vantage point, so the background is the one
+          part of this screen you can actually play with. */}
+      <Propagation className="absolute inset-0 w-full h-full" />
 
-        <p className="text-md text-ink-soft mt-4 max-w-[54ch] anim-rise"
-           style={{ animationDelay: '80ms' }}>
-          Every blockchain tool can tell you that money moved suspiciously. This one
-          correlates the <span className="text-network font-semibold">network layer</span> —
-          IP, port, timing — with the <span className="text-chain font-semibold">chain
-          layer</span> to say <em>who moved it</em>, and refuses to guess when the evidence
-          is shared infrastructure.
-        </p>
+      {/* A veil, not a frosted card. Solid ground under the column that holds
+          the text, thinning to nothing across the field, so contrast is carried
+          by the page rather than by a panel floating on top of it. */}
+      <div aria-hidden className="absolute inset-0 pointer-events-none"
+           style={{ background:
+             'linear-gradient(to right, var(--paper) 0%, var(--paper) 26%,' +
+             ' color-mix(in srgb, var(--paper) 80%, transparent) 46%,' +
+             ' color-mix(in srgb, var(--paper) 28%, transparent) 70%, transparent 100%)' }} />
+      <div aria-hidden className="absolute inset-x-0 bottom-0 h-32 pointer-events-none"
+           style={{ background:
+             'linear-gradient(to top, var(--paper) 0%,' +
+             ' color-mix(in srgb, var(--paper) 55%, transparent) 55%, transparent 100%)' }} />
 
+      <div className="relative h-full flex flex-col justify-center px-6 sm:px-10 lg:px-14
+                      max-w-[46rem] pointer-events-none">
+        <div className="pointer-events-auto">
+          <h1 className="display text-ink anim-rise"
+              style={{ fontSize: 'clamp(32px,5vw,60px)' }}>
+            Network <span className="text-chain">⇄</span> chain<br />attribution
+          </h1>
+
+          <p className="text-md text-ink-soft mt-4 max-w-[52ch] anim-rise"
+             style={{ animationDelay: '80ms' }}>
+            Every blockchain tool can tell you that money moved suspiciously. This one
+            correlates the <span className="text-network font-semibold">network layer</span> —
+            IP, port, timing — with the <span className="text-chain font-semibold">chain
+            layer</span> to say <em>who moved it</em>, and refuses to guess when the evidence
+            is shared infrastructure.
+          </p>
         {/* ------------------------------------------------------ dropzone */}
         <div
           onDragOver={(e) => { e.preventDefault(); setOver(true); }}
@@ -144,7 +164,7 @@ export function StartScreen({ onStarted, lastRun, onViewLast }: {
           </div>
         </div>
 
-        <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-2xs text-ink-dim
+        <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-2xs text-ink-dim
                         anim-rise" style={{ animationDelay: '320ms' }}>
           <span className="flex items-center gap-1.5">
             <span aria-hidden className="w-1.5 h-1.5 inline-block bg-confirm" />
@@ -161,20 +181,21 @@ export function StartScreen({ onStarted, lastRun, onViewLast }: {
             </button>
           )}
         </div>
+        </div>
       </div>
 
-      {/* --------------------------------------------------------- right */}
-      <div className="relative hidden lg:block border-l border-rule bg-surface-2 overflow-hidden">
-        <Propagation className="absolute inset-0 w-full h-full" />
-        <div className="absolute left-5 bottom-5 max-w-[42ch] pointer-events-none">
-          <div className="colhead mb-1">live: randomised diffusion</div>
-          <p className="text-2xs text-ink-soft leading-relaxed">
-            One peer announces a transaction; the rest relay it after a
-            <span className="text-ink"> randomised per-peer delay</span>. That delay is
-            why first-seen attribution has been wrong since 2015 — and why this system
-            uses a significance test over many announcements instead.
-          </p>
-        </div>
+      {/* The one instruction the field needs, placed where the field is. */}
+      <div className="absolute right-6 bottom-5 max-w-[34ch] hidden lg:block pointer-events-none
+                      text-right anim-rise" style={{ animationDelay: '420ms' }}>
+        <div className="colhead mb-1">live · randomised diffusion</div>
+        <p className="text-2xs text-ink-soft leading-relaxed">
+          One peer announces; the rest relay after a
+          <span className="text-ink"> randomised per-peer delay</span> — which is why
+          first-seen attribution has been wrong since 2015.
+          <br />
+          <span className="text-chain">Move your cursor</span> to place a listening
+          vantage point and see what it can hear.
+        </p>
       </div>
     </div>
   );

@@ -1,175 +1,300 @@
-/** Live P2P diffusion, drawn on the landing screen.
+/** The live diffusion field behind the landing screen.
  *
- * NOT decoration, and specifically not a generic particle field. This is the
- * thing the product is about: a transaction is announced by one peer and spreads
- * across the network with a RANDOMISED per-peer delay - the defence Bitcoin Core
- * added precisely to defeat first-relay inference (Koshy FC'14, Biryukov CCS'14).
- * Every other node lights up later and in an order that carries no reliable
- * information about the origin. That is the problem this tool exists to solve,
- * so it is what the idle screen shows.
+ * NOT a particle background. This is the product's own problem, drawn: a peer
+ * announces a transaction and the rest relay it after a RANDOMISED per-peer
+ * delay - the defence Bitcoin Core added to defeat first-relay inference (Koshy
+ * FC'14, Biryukov CCS'14). Arrival order therefore tells you almost nothing
+ * about who sent it, which is why this system runs a significance test over many
+ * announcements instead of trusting the first sighting.
  *
- * Canvas rather than SVG: ~44 nodes and ~90 edges repainting at 60fps is a lot
- * of DOM churn for no benefit. Colours are read from the CSS tokens each frame's
- * first paint so the animation follows the theme.
+ * THE POINTER IS A VANTAGE POINT. Move it and you are a listening node: the
+ * peers inside your observation radius light up and report to you. Move away and
+ * they go dark. That is the sensitivity curve on the Model page made tangible -
+ * attribution accuracy is a function of how much of the network you can see, and
+ * it inverts below ~10% coverage.
+ *
+ * Implementation notes that matter:
+ *  - Everything is time-based (dt), never per-frame decay. Frame-based easing
+ *    runs at a different speed on a 120Hz display than on a 60Hz one, which is
+ *    the usual reason a canvas animation feels janky on someone else's machine.
+ *  - Three overlapping waves, staggered, so the field is never empty and never
+ *    pulses in unison.
+ *  - Colours are re-read from the CSS tokens every frame, so the field follows
+ *    the theme with no extra wiring.
  */
 import { useEffect, useRef } from 'react';
 
-type Node = { x: number; y: number; lit: number; origin: boolean };
-type Edge = { a: number; b: number; fire: number };
+type Node = { x: number; y: number; hx: number; hy: number; phase: number; lit: number; seen: number };
+type Edge = { a: number; b: number };
+type Pulse = { e: number; dir: 1 | -1; t: number; dur: number; wave: number };
+type Wave = { origin: number; born: number; ring: number };
 
-const N_NODES = 44;
+const DENSITY = 6200;         // one node per N px² - keeps density constant at any size
+const MAX_NODES = 200;        // full-bleed needs a real mesh; 49 nodes read as dust
+const VANTAGE_R = 190;        // observation radius of the pointer, in px
 
 export function Propagation({ className = '' }: { className?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    const cv = ref.current;
-    if (!cv) return;
-    const ctx = cv.getContext('2d');
-    if (!ctx) return;
-
+    const cv = ref.current; if (!cv) return;
+    const ctx = cv.getContext('2d', { alpha: true }); if (!ctx) return;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    let raf = 0, w = 0, h = 0, dpr = 1;
-    let nodes: Node[] = [], edges: Edge[] = [];
-    const rand = mulberry(20260826);   // seeded: the same lattice every load
+
+    let raf = 0, w = 0, h = 0, last = 0;
+    let nodes: Node[] = [], edges: Edge[] = [], adj: number[][] = [];
+    let pulses: Pulse[] = [], waves: Wave[] = [];
+    let seenBy: Set<number>[] = [];
+    const rand = mulberry(20260826);
+    const ptr = { x: -9999, y: -9999, on: 0 };   // `on` eases 0..1 so it never snaps
 
     function layout() {
       const r = cv!.getBoundingClientRect();
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
       w = r.width; h = r.height;
+      if (!w || !h) return;
       cv!.width = Math.round(w * dpr); cv!.height = Math.round(h * dpr);
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      // Jittered grid: a pure random scatter clumps and reads as noise; a pure
-      // grid reads as a texture. Bitcoin's topology is neither.
-      const cols = 8, rows = Math.max(4, Math.round((cols * h) / Math.max(w, 1)));
+      const target = Math.min(MAX_NODES, Math.max(36, Math.round((w * h) / DENSITY)));
+      const cols = Math.max(4, Math.round(Math.sqrt(target * (w / h))));
+      const rows = Math.max(3, Math.ceil(target / cols));
       nodes = [];
-      for (let i = 0; i < rows; i++) {
-        for (let j = 0; j < cols; j++) {
-          if (nodes.length >= N_NODES) break;
-          nodes.push({
-            x: ((j + 0.5) / cols) * w + (rand() - 0.5) * (w / cols) * 0.75,
-            y: ((i + 0.5) / rows) * h + (rand() - 0.5) * (h / rows) * 0.75,
-            lit: 0, origin: false,
-          });
-        }
+      for (let i = 0; i < rows; i++) for (let j = 0; j < cols; j++) {
+        if (nodes.length >= target) break;
+        const x = ((j + 0.5) / cols) * w + (rand() - 0.5) * (w / cols) * 0.8;
+        const y = ((i + 0.5) / rows) * h + (rand() - 0.5) * (h / rows) * 0.8;
+        nodes.push({ x, y, hx: x, hy: y, phase: rand() * Math.PI * 2, lit: 0, seen: 0 });
       }
-      // Connect each node to its nearest few - a peer keeps a handful of links.
-      edges = [];
+      edges = []; adj = nodes.map(() => []);
       nodes.forEach((n, i) => {
-        const near = nodes.map((m, k) => ({ k, d: (m.x - n.x) ** 2 + (m.y - n.y) ** 2 }))
-          .filter((o) => o.k !== i).sort((a, b) => a.d - b.d).slice(0, 3);
-        near.forEach((o) => {
-          if (!edges.some((e) => (e.a === o.k && e.b === i) || (e.a === i && e.b === o.k))) {
-            edges.push({ a: i, b: o.k, fire: 0 });
-          }
-        });
+        nodes.map((m, k) => ({ k, d: (m.x - n.x) ** 2 + (m.y - n.y) ** 2 }))
+          .filter((o) => o.k !== i).sort((a, b) => a.d - b.d).slice(0, 4)
+          .forEach((o) => {
+            if (edges.some((e) => (e.a === i && e.b === o.k) || (e.a === o.k && e.b === i))) return;
+            const id = edges.length;
+            edges.push({ a: i, b: o.k });
+            adj[i].push(id); adj[o.k].push(id);
+          });
       });
+      pulses = []; waves = []; seenBy = [];
     }
 
-    // --- one propagation wave ---------------------------------------------
-    let queue: { node: number; at: number }[] = [];
-    let seen = new Set<number>();
-    let nextWave = 0;
-
-    function announce(t: number) {
-      nodes.forEach((n) => { n.lit = 0; n.origin = false; });
-      edges.forEach((e) => { e.fire = 0; });
-      seen = new Set(); queue = [];
+    function announce(now: number) {
+      const wave = waves.length;
       const origin = Math.floor(rand() * nodes.length);
-      nodes[origin].origin = true;
-      queue.push({ node: origin, at: t });
-      seen.add(origin);
+      waves.push({ origin, born: now, ring: 0 });
+      seenBy[wave] = new Set([origin]);
+      nodes[origin].lit = 1;
+      emit(origin, wave);
     }
 
-    function step(t: number) {
-      // Deliver anything whose randomised delay has elapsed.
-      const due = queue.filter((q) => q.at <= t);
-      queue = queue.filter((q) => q.at > t);
-      due.forEach((q) => {
-        nodes[q.node].lit = 1;
-        edges.forEach((e) => {
-          const other = e.a === q.node ? e.b : e.b === q.node ? e.a : -1;
-          if (other < 0 || seen.has(other)) return;
-          seen.add(other);
-          e.fire = 1;
-          // THE POINT: the delay is random per peer, not proportional to
-          // distance. Nothing about arrival order names the origin.
-          queue.push({ node: other, at: t + 220 + rand() * 900 });
-        });
+    function emit(from: number, wave: number) {
+      adj[from].forEach((eid) => {
+        const e = edges[eid];
+        const to = e.a === from ? e.b : e.a;
+        if (seenBy[wave].has(to)) return;
+        seenBy[wave].add(to);
+        // The delay is RANDOM per peer, not proportional to distance. That is
+        // the whole point - nothing about the order of arrival names the origin.
+        const dur = 520 + rand() * 1500;
+        pulses.push({ e: eid, dir: e.a === from ? 1 : -1, t: -rand() * 240, dur, wave });
       });
-      if (!queue.length && !nextWave) nextWave = t + 1400;
-      if (nextWave && t > nextWave) { announce(t); nextWave = 0; }
     }
 
-    function draw(t: number) {
+    function step(now: number, dt: number) {
+      // On first mount the canvas can measure 0x0 for a frame, so layout() bails
+      // and leaves the arrays empty - while the rAF loop has already started and
+      // would index nodes[0] of nothing. Guard here rather than in five places.
+      if (!nodes.length) return;
+      // Keep three waves in flight, staggered, so the field never goes quiet
+      // and never beats in unison.
+      if (waves.length < 4 || now - waves[waves.length - 1].born > 1700) {
+        if (waves.length < 4 || pulses.length < 14) announce(now);
+      }
+      if (waves.length > 8) { waves.splice(0, waves.length - 8); seenBy.splice(0, seenBy.length - 8); }
+
+      pulses = pulses.filter((p) => {
+        p.t += dt;
+        if (p.t < p.dur) return true;
+        const e = edges[p.e];
+        const to = p.dir === 1 ? e.b : e.a;
+        nodes[to].lit = 1;
+        if (seenBy[p.wave]) emit(to, p.wave);
+        return false;
+      });
+
+      const decay = Math.pow(0.5, dt / 1400);      // time-based half-life, not per-frame
+      nodes.forEach((n, i) => {
+        n.lit *= decay;
+        // Slow independent drift: the field breathes instead of sitting still.
+        n.x = n.hx + Math.sin(now / 5200 + n.phase) * 7;
+        n.y = n.hy + Math.cos(now / 6100 + n.phase * 1.3) * 7;
+        const d = Math.hypot(n.x - ptr.x, n.y - ptr.y);
+        const want = ptr.on * Math.max(0, 1 - d / VANTAGE_R);
+        n.seen += (want - n.seen) * Math.min(1, dt / 90);   // eased, never snapping
+        void i;
+      });
+    }
+
+    function draw(now: number) {
+      if (!nodes.length) return;
       const cs = getComputedStyle(document.documentElement);
-      const tok = (n: string) => cs.getPropertyValue(n).trim();
-      // --rule, not --rule-soft: the soft hairline reads fine on paper but on
-      // the near-black dark ground the whole lattice disappeared. The mesh has
-      // to be equally legible in both themes or the panel is empty in one.
-      const rule = tok('--rule') || '#C3CCD4';
-      const chain = tok('--chain') || '#2D6A9F';
-      const network = tok('--network') || '#7B4B94';
-      const dim = tok('--ink-dim') || '#56646F';
+      const tok = (n: string, f: string) => cs.getPropertyValue(n).trim() || f;
+      const rule = tok('--rule', '#C3CCD4');
+      const chain = tok('--chain', '#2D6A9F');
+      const network = tok('--network', '#7B4B94');
+      const fusion = tok('--fusion', '#8C5B0E');
+      const dim = tok('--ink-dim', '#56646F');
 
       ctx!.clearRect(0, 0, w, h);
+      ctx!.lineCap = 'round';
 
+      // --- edges -----------------------------------------------------------
       edges.forEach((e) => {
         const A = nodes[e.a], B = nodes[e.b];
+        const obs = Math.max(A.seen, B.seen);
         ctx!.beginPath(); ctx!.moveTo(A.x, A.y); ctx!.lineTo(B.x, B.y);
-        ctx!.strokeStyle = rule; ctx!.lineWidth = 1;
-        ctx!.globalAlpha = 0.7; ctx!.stroke();
-        if (e.fire > 0.01) {
-          ctx!.strokeStyle = chain; ctx!.lineWidth = 1.4;
-          ctx!.globalAlpha = e.fire * 0.9; ctx!.stroke();
-          e.fire *= 0.955;
-        }
+        ctx!.strokeStyle = obs > 0.02 ? chain : rule;
+        ctx!.lineWidth = 1;
+        ctx!.globalAlpha = 0.42 + obs * 0.5;
+        ctx!.stroke();
       });
-      ctx!.globalAlpha = 1;
 
-      nodes.forEach((n) => {
-        const s = n.origin ? 4.5 : n.lit > 0.02 ? 3.4 : 2.2;
-        ctx!.beginPath(); ctx!.rect(n.x - s / 2, n.y - s / 2, s, s);
-        ctx!.fillStyle = n.origin ? network : n.lit > 0.02 ? chain : dim;
-        ctx!.globalAlpha = n.origin ? 1 : n.lit > 0.02 ? 0.4 + n.lit * 0.6 : 0.45;
-        ctx!.fill();
-        // The origin keeps a ring: the one node we would like to identify, and
-        // the one the arrival order will not give us.
-        if (n.origin) {
-          ctx!.beginPath(); ctx!.arc(n.x, n.y, 9 + Math.sin(t / 420) * 2, 0, Math.PI * 2);
-          ctx!.strokeStyle = network; ctx!.globalAlpha = 0.4; ctx!.lineWidth = 1; ctx!.stroke();
-        }
-        if (n.lit > 0.02) n.lit *= 0.988;
+      // --- travelling announcements ---------------------------------------
+      // A dot moving along the wire reads as a message in transit. A fading
+      // line just reads as a line fading.
+      pulses.forEach((p) => {
+        if (p.t < 0) return;
+        const e = edges[p.e];
+        const A = p.dir === 1 ? nodes[e.a] : nodes[e.b];
+        const B = p.dir === 1 ? nodes[e.b] : nodes[e.a];
+        const k = easeOut(Math.min(1, p.t / p.dur));
+        const x = A.x + (B.x - A.x) * k, y = A.y + (B.y - A.y) * k;
+        const tail = Math.max(0, k - 0.22);
+        ctx!.beginPath();
+        ctx!.moveTo(A.x + (B.x - A.x) * tail, A.y + (B.y - A.y) * tail);
+        ctx!.lineTo(x, y);
+        ctx!.strokeStyle = chain; ctx!.lineWidth = 1.7;
+        ctx!.globalAlpha = 0.85 * (1 - Math.abs(k - 0.5) * 0.5);
+        ctx!.stroke();
+        ctx!.beginPath(); ctx!.arc(x, y, 1.9, 0, Math.PI * 2);
+        ctx!.fillStyle = chain; ctx!.globalAlpha = 0.95; ctx!.fill();
       });
+
+      // --- nodes -----------------------------------------------------------
+      nodes.forEach((n) => {
+        const s = 2.6 + n.lit * 2.4 + n.seen * 1.6;
+        ctx!.beginPath(); ctx!.rect(n.x - s / 2, n.y - s / 2, s, s);
+        ctx!.fillStyle = n.seen > 0.03 ? chain : n.lit > 0.03 ? fusion : dim;
+        ctx!.globalAlpha = 0.5 + n.lit * 0.45 + n.seen * 0.45;
+        ctx!.fill();
+        if (n.seen > 0.05) {
+          // What this vantage point can hear.
+          ctx!.beginPath(); ctx!.moveTo(n.x, n.y); ctx!.lineTo(ptr.x, ptr.y);
+          ctx!.strokeStyle = chain; ctx!.lineWidth = 0.9;
+          ctx!.globalAlpha = n.seen * 0.55; ctx!.stroke();
+        }
+      });
+
+      // --- wave origins ----------------------------------------------------
+      waves.forEach((wv) => {
+        const n = nodes[wv.origin]; if (!n) return;
+        const age = (now - wv.born) / 2600;
+        if (age > 1.6) return;
+        ctx!.beginPath(); ctx!.arc(n.x, n.y, 6 + age * 46, 0, Math.PI * 2);
+        ctx!.strokeStyle = network; ctx!.lineWidth = 1.2;
+        ctx!.globalAlpha = Math.max(0, 0.5 - age * 0.34); ctx!.stroke();
+        ctx!.beginPath(); ctx!.arc(n.x, n.y, 3.6, 0, Math.PI * 2);
+        ctx!.fillStyle = network; ctx!.globalAlpha = 0.95; ctx!.fill();
+      });
+
+      // --- the vantage point ------------------------------------------------
+      // Deliberately the most vivid thing on the screen while the pointer is in
+      // the field: it is the only part of this page the visitor controls, and
+      // what it demonstrates - coverage determines what you can attribute - is
+      // the argument the Model page makes with a curve.
+      if (ptr.on > 0.01) {
+        const g = ctx!.createRadialGradient(ptr.x, ptr.y, 0, ptr.x, ptr.y, VANTAGE_R);
+        g.addColorStop(0, withAlpha(chain, 0.16 * ptr.on));
+        g.addColorStop(0.55, withAlpha(chain, 0.05 * ptr.on));
+        g.addColorStop(1, withAlpha(chain, 0));
+        ctx!.globalAlpha = 1; ctx!.fillStyle = g;
+        ctx!.beginPath(); ctx!.arc(ptr.x, ptr.y, VANTAGE_R, 0, Math.PI * 2); ctx!.fill();
+
+        // Coverage boundary, breathing slowly so it reads as listening.
+        const pulse = 1 + Math.sin(now / 900) * 0.012;
+        ctx!.beginPath(); ctx!.arc(ptr.x, ptr.y, VANTAGE_R * pulse, 0, Math.PI * 2);
+        ctx!.strokeStyle = chain; ctx!.lineWidth = 1.2;
+        ctx!.globalAlpha = ptr.on * 0.4; ctx!.setLineDash([3, 5]); ctx!.stroke();
+        ctx!.setLineDash([]);
+
+        ctx!.beginPath(); ctx!.arc(ptr.x, ptr.y, 7, 0, Math.PI * 2);
+        ctx!.strokeStyle = chain; ctx!.lineWidth = 1.6;
+        ctx!.globalAlpha = ptr.on * 0.9; ctx!.stroke();
+        ctx!.beginPath(); ctx!.arc(ptr.x, ptr.y, 2.2, 0, Math.PI * 2);
+        ctx!.fillStyle = chain; ctx!.globalAlpha = ptr.on; ctx!.fill();
+      }
       ctx!.globalAlpha = 1;
     }
 
     layout();
     if (reduced) {
-      // Reduced motion still gets the picture, just not the movement: one
-      // fully-propagated frame rather than an empty box.
+      // Still shows the network and one propagation, just without motion.
       announce(0);
-      for (let i = 0; i < 400; i++) step(i * 40);
-      nodes.forEach((n) => { n.lit = 1; });
+      for (let i = 0; i < 900; i++) step(i * 30, 30);
+      nodes.forEach((n) => { n.lit = 0.5; });
       draw(0);
       return;
     }
 
-    announce(performance.now());
-    const loop = (t: number) => { step(t); draw(t); raf = requestAnimationFrame(loop); };
+    const loop = (t: number) => {
+      const dt = Math.min(48, last ? t - last : 16); last = t;
+      if (ptr.x > -9000) ptr.on = 1;
+      else ptr.on += (0 - ptr.on) * Math.min(1, dt / 260);
+      step(t, dt); draw(t);
+      raf = requestAnimationFrame(loop);
+    };
     raf = requestAnimationFrame(loop);
 
-    const ro = new ResizeObserver(() => { layout(); announce(performance.now()); });
+    const move = (e: PointerEvent) => {
+      const r = cv!.getBoundingClientRect();
+      ptr.x = e.clientX - r.left; ptr.y = e.clientY - r.top;
+    };
+    const leave = () => { ptr.x = -9999; ptr.y = -9999; };
+    window.addEventListener('pointermove', move, { passive: true });
+    window.addEventListener('pointerleave', leave);
+    const ro = new ResizeObserver(() => {
+      const r = cv!.getBoundingClientRect();
+      if (Math.abs(r.width - w) > 1 || Math.abs(r.height - h) > 1) layout();
+    });
     ro.observe(cv);
-    return () => { cancelAnimationFrame(raf); ro.disconnect(); };
+    return () => {
+      cancelAnimationFrame(raf); ro.disconnect();
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerleave', leave);
+    };
   }, []);
 
   return <canvas ref={ref} className={className} aria-hidden />;
 }
 
-/** Small seeded PRNG so the lattice is identical on every load - a layout that
- *  reshuffles on refresh reads as noise rather than as a network. */
+const easeOut = (k: number) => 1 - Math.pow(1 - k, 3);
+
+/** Canvas gradients need a colour with an alpha channel, and the tokens are
+ *  opaque hex. Handles #rgb and #rrggbb; anything else is passed through so a
+ *  future token format degrades to "no gradient" rather than to a crash. */
+function withAlpha(hex: string, a: number) {
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return hex;
+  let h = m[1];
+  if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+  const n = parseInt(h, 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+}
+
+/** Seeded, so the lattice is the same on every load. A layout that reshuffles on
+ *  refresh reads as noise rather than as a network. */
 function mulberry(seed: number) {
   let a = seed >>> 0;
   return () => {
