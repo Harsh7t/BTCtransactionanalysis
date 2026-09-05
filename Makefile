@@ -5,7 +5,7 @@ TRUTH   := data/samples/capture_truth
 ART     := artifacts/v1
 PORT    ?= 8000
 
-.PHONY: help setup generate train run leak-test reproduce serve ui test offline-check clean
+.PHONY: help setup bootstrap generate train run leak-test reproduce serve ui test offline-check clean
 
 help:
 	@grep -E '^[a-z-]+:.*?##' $(MAKEFILE_LIST) | sed 's/:.*##/\t/' | expand -t22
@@ -14,6 +14,14 @@ setup:            ## create the venv and install everything (needs network ONCE)
 	uv venv --python 3.11
 	uv pip install -e ".[dev]"
 	cd ui && npm ci && npm run build
+
+bootstrap:        ## clone -> demo in one command (needs network ONCE)
+	@$(MAKE) --no-print-directory setup
+	@echo "── synthesising the sample captures ──────────────────"
+	@$(MAKE) --no-print-directory generate
+	@$(PY) -m btcfusion.cli generate --name judge --profile smoke --format all
+	@echo ""
+	@echo "Ready. Start the demo with:  make serve   ->  http://localhost:8000"
 
 generate:         ## synthesise a labelled capture (CSV + JSONL + XML)
 	$(PY) -m btcfusion.cli generate --name capture --format all

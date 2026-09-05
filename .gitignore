@@ -11,8 +11,10 @@ data/uploads/
 data/exports/
 data/case.duckdb
 data/train.duckdb
-ui/dist/
 wheels/
+
+# The built UI bundle IS committed: `make serve` serves it, and a teammate who
+# clones without it gets a blank page. 1.5 MB, rebuilt by `make ui`.
 
 # Real external datasets: not ours to redistribute, and large.
 # Elliptic (Kaggle, ellipticco/elliptic-data-set) - see docs/external_validation.md

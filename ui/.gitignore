@@ -8,7 +8,8 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
-dist
+# dist IS committed — `make serve` serves this bundle, and a clone without it
+# shows a blank page. Rebuild with `make ui`.
 dist-ssr
 *.local
 
