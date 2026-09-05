@@ -11,37 +11,81 @@ applies ML to produce ranked, explainable investigative leads. Runs entirely off
 
 ## Start the demo
 
-**Prerequisites:** Python 3.11+, Node.js, [`uv`](https://docs.astral.sh/uv/), and `make`.
+### First time — macOS / Linux
 
 ```bash
+# 1. install uv (one time, skip if `uv --version` already works)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source $HOME/.local/bin/env
+
+# 2. clone and set up — this is the only step that needs network
 git clone https://github.com/Harsh7t/BTCtransactionanalysis.git
 cd BTCtransactionanalysis
-make bootstrap      # once, and the only step that needs network
-make serve          # http://localhost:8000
+make bootstrap
+
+# 3. run it
+make serve
 ```
 
-`make bootstrap` creates the venv, installs everything, and synthesises the sample
-captures. Then open **http://localhost:8000** and click a bundled sample — or drop your
-own CSV/JSONL/XML on the landing page. Scoring runs live through nine stages and lands on
-the ranked alert queue; open any row for the case file, with evidence, SHAP reasons, the
-money graph and the network attribution.
+Open **http://localhost:8000**.
 
-### On Windows
+### Running it again later
 
-`make` is not installed on Windows and the other targets use Unix tools, so use **WSL2**
-(then follow the steps above unchanged) — or run the four commands directly, which needs
-no `make` at all:
+Once set up, this is all you need — no network, no rebuild:
+
+```bash
+cd BTCtransactionanalysis
+make serve
+```
+
+### First time — Windows
+
+`make` does not exist on Windows, so run the commands directly. (Or install **WSL2** and
+follow the macOS steps unchanged.)
 
 ```powershell
+# 1. install uv (one time), then reopen PowerShell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# 2. clone and set up
+git clone https://github.com/Harsh7t/BTCtransactionanalysis.git
+cd BTCtransactionanalysis
 uv venv --python 3.11
 uv pip install -e ".[dev]"
-cd ui; npm ci; npm run build; cd ..
+cd ui
+npm ci
+npm run build
+cd ..
 .venv\Scripts\python -m btcfusion.cli generate --name capture --format all
+
+# 3. run it
 .venv\Scripts\python -m btcfusion.cli serve --port 8000
 ```
 
-Note `.venv\Scripts\python` on Windows where POSIX uses `.venv/bin/python`. The Makefile
-detects this itself, so `make` works under WSL and Git Bash.
+### Running it again later — Windows
+
+```powershell
+cd BTCtransactionanalysis
+.venv\Scripts\python -m btcfusion.cli serve --port 8000
+```
+
+### If something fails
+
+| Error | Fix |
+|---|---|
+| `uv: No such file or directory` | uv is not installed or not on PATH. Run the install command above, then `source $HOME/.local/bin/env` — or `brew install uv`. |
+| `node: command not found` / `npm ci` fails | Install Node.js: `brew install node`, or from [nodejs.org](https://nodejs.org). |
+| `make: command not found` (macOS) | `xcode-select --install` |
+| `.venv/bin/python: No such file or directory` | Setup did not finish. Fix the error above it and re-run `make bootstrap`. |
+| Port 8000 already in use | `make serve PORT=8080` |
+
+`make bootstrap` takes a few minutes — it installs Python and npm packages, then
+synthesises ~230 MB of sample capture. It is not stuck.
+
+Once it has run, open **http://localhost:8000** and click a bundled sample, or drop your
+own CSV/JSONL/XML on the landing page. Scoring runs live through nine stages and lands on
+the ranked alert queue; open any row for the case file, with evidence, SHAP reasons, the
+money graph and the network attribution.
 
 ### What is in the repo, and what is generated
 
