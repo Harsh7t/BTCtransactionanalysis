@@ -26,6 +26,23 @@ own CSV/JSONL/XML on the landing page. Scoring runs live through nine stages and
 the ranked alert queue; open any row for the case file, with evidence, SHAP reasons, the
 money graph and the network attribution.
 
+### On Windows
+
+`make` is not installed on Windows and the other targets use Unix tools, so use **WSL2**
+(then follow the steps above unchanged) — or run the four commands directly, which needs
+no `make` at all:
+
+```powershell
+uv venv --python 3.11
+uv pip install -e ".[dev]"
+cd ui; npm ci; npm run build; cd ..
+.venv\Scripts\python -m btcfusion.cli generate --name capture --format all
+.venv\Scripts\python -m btcfusion.cli serve --port 8000
+```
+
+Note `.venv\Scripts\python` on Windows where POSIX uses `.venv/bin/python`. The Makefile
+detects this itself, so `make` works under WSL and Git Bash.
+
 ### What is in the repo, and what is generated
 
 | | |

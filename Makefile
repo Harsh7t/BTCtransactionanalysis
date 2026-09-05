@@ -1,5 +1,6 @@
 # BTC-FUSION. Every published number regenerates from these targets.
-PY      := .venv/bin/python
+# Windows virtualenvs put the interpreter in Scripts/, POSIX ones in bin/.
+PY      := $(if $(wildcard .venv/Scripts/python.exe),.venv/Scripts/python.exe,.venv/bin/python)
 CAPTURE := data/samples/capture.csv
 TRUTH   := data/samples/capture_truth
 ART     := artifacts/v1
@@ -25,7 +26,7 @@ bootstrap:        ## clone -> demo in one command (needs network ONCE)
 
 generate:         ## synthesise a labelled capture (CSV + JSONL + XML)
 	$(PY) -m btcfusion.cli generate --name capture --format all
-	cp data/samples/capture_truth/geoip_table.csv data/geo/asn-blocks.csv
+	@$(PY) -c "import shutil; shutil.copyfile('data/samples/capture_truth/geoip_table.csv','data/geo/asn-blocks.csv')"
 
 train:            ## fit, calibrate, evaluate -> $(ART)/metrics.json
 	$(PY) -m btcfusion.cli train $(CAPTURE) $(TRUTH) --artifacts $(ART)
