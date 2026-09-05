@@ -11,6 +11,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { api, fmt } from '../api';
 import { Propagation } from './Propagation';
+import { HowItWorks } from './HowItWorks';
 
 const ACCEPT = ['.csv', '.json', '.jsonl', '.xml'];
 const FIELDS = ['timestamp', 'src_ip', 'dst_ip', 'src_port', 'dst_port', 'txid',
@@ -54,17 +55,36 @@ export function StartScreen({ onStarted, lastRun, onViewLast }: {
   }, [onStarted]);
 
   return (
-    <div className="relative flex-1 min-h-0 overflow-hidden flex flex-col">
-      {/* The field sits behind everything and fills the screen. It is the
-          product's own problem drawn live - see Propagation.tsx - and the
-          pointer is a listening vantage point, so the background is the one
-          part of this screen you can actually play with. */}
-      <Propagation className="absolute inset-0 w-full h-full" />
+    <div className="flex-1 flex flex-col">
+    {/* The hero is one viewport tall and no more. It used to be the whole
+        screen with its own inner scroller; now the PAGE scrolls, because there
+        is an explainer under it and because the header's scrolled-ground state
+        keys off window.scrollY - an inner scroller leaves the bar transparent
+        over moving text. 5rem is the chrome above plus the status bar below. */}
+    {/* The field is the ground for the whole landing, hero and explainer both -
+        one canvas, fixed to the viewport, not a second instance. It is the
+        product's own problem drawn live (see Propagation.tsx) and the pointer is
+        a listening vantage point, so it stays playable the entire way down the
+        page rather than only above the fold. Its pointer handler is on `window`
+        and maps through the canvas rect, so `fixed` costs it nothing. */}
+    <Propagation className="fixed inset-0 w-full h-full -z-10" />
+
+    {/* No overflow-hidden. It was here to clip the field when the canvas lived
+        inside this section; the canvas is now fixed to the viewport, and the
+        clip is what stopped the veil from reaching up over the header. */}
+    <section className="relative flex flex-col min-h-[calc(100svh-5rem)]">
 
       {/* A veil, not a frosted card. Solid ground under the column that holds
           the text, thinning to nothing across the field, so contrast is carried
-          by the page rather than by a panel floating on top of it. */}
-      <div aria-hidden className="absolute inset-0 pointer-events-none"
+          by the page rather than by a panel floating on top of it.
+
+          -top-12 IS THE BUG FIX. The field is fixed to the viewport and runs
+          from y=0, but this section starts below the 48px header, so the veil
+          did too: the field was raw across the header band and veiled from the
+          heading down, which drew a hard horizontal seam straight across the
+          page at exactly the header's bottom edge. The veil now starts where the
+          field does. The header is z-30 and still paints above it. */}
+      <div aria-hidden className="absolute -top-12 left-0 right-0 bottom-0 pointer-events-none"
            style={{ background:
              'linear-gradient(to right, var(--paper) 0%, var(--paper) 26%,' +
              ' color-mix(in srgb, var(--paper) 80%, transparent) 46%,' +
@@ -74,9 +94,8 @@ export function StartScreen({ onStarted, lastRun, onViewLast }: {
              'linear-gradient(to top, var(--paper) 0%,' +
              ' color-mix(in srgb, var(--paper) 55%, transparent) 55%, transparent 100%)' }} />
 
-      <div className="relative flex-1 min-h-0 overflow-y-auto">
-        <div className="min-h-full flex flex-col px-6 sm:px-10 lg:px-14 pt-10 sm:pt-14 pb-12
-                        max-w-[46rem] pointer-events-none">
+      <div className="relative flex-1 flex flex-col px-6 sm:px-12 lg:px-12 pt-12 sm:pt-12 pb-12
+                      max-w-[46rem] pointer-events-none">
         <div className="pointer-events-auto">
           <h1 className="display text-ink anim-rise"
               style={{ fontSize: 'clamp(32px,5vw,60px)' }}>
@@ -101,7 +120,7 @@ export function StartScreen({ onStarted, lastRun, onViewLast }: {
           role="button" tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileRef.current?.click(); }}
           aria-label="Drop a capture file here, or click to choose one"
-          className={`relative mt-7 border cursor-pointer transition-colors duration-150 anim-rise
+          className={`relative mt-6 border cursor-pointer transition-colors duration-150 anim-rise
                       ${over ? 'border-chain bg-chain-wash' : 'border-rule bg-surface hover:border-ink'}`}
           style={{ animationDelay: '160ms' }}
         >
@@ -139,12 +158,12 @@ export function StartScreen({ onStarted, lastRun, onViewLast }: {
         </div>
 
         {err && (
-          <p className="text-sm text-danger mt-2.5 anim-rise" role="alert">{err}</p>
+          <p className="text-sm text-danger mt-3 anim-rise" role="alert">{err}</p>
         )}
 
         {/* -------------------------------------------------- sample runs */}
-        <div className="mt-5 anim-rise" style={{ animationDelay: '240ms' }}>
-          <div className="colhead mb-1.5">or score a bundled capture — no upload</div>
+        <div className="mt-6 anim-rise" style={{ animationDelay: '240ms' }}>
+          <div className="colhead mb-2">or score a bundled capture — no upload</div>
           <div className="flex flex-wrap gap-2">
             {[
               { name: 'judge.csv', label: 'judge', note: '16 MB · seconds' },
@@ -165,9 +184,9 @@ export function StartScreen({ onStarted, lastRun, onViewLast }: {
           </div>
         </div>
 
-        <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-2xs text-ink-dim
+        <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-2xs text-ink-dim
                         anim-rise" style={{ animationDelay: '320ms' }}>
-          <span className="flex items-center gap-1.5">
+          <span className="flex items-center gap-2">
             <span aria-hidden className="w-1.5 h-1.5 inline-block bg-confirm" />
             runs entirely offline — no API, no cloud model
           </span>
@@ -183,22 +202,18 @@ export function StartScreen({ onStarted, lastRun, onViewLast }: {
           )}
         </div>
         </div>
-        </div>
       </div>
 
-      {/* The one instruction the field needs, placed where the field is. */}
-      <div className="absolute right-6 bottom-5 max-w-[34ch] hidden xl:block pointer-events-none
-                      text-right anim-rise" style={{ animationDelay: '420ms' }}>
-        <div className="colhead mb-1">live · randomised diffusion</div>
-        <p className="text-2xs text-ink-soft leading-relaxed">
-          One peer announces; the rest relay after a
-          <span className="text-ink"> randomised per-peer delay</span> — which is why
-          first-seen attribution has been wrong since 2015.
-          <br />
-          <span className="text-chain">Move your cursor</span> to place a listening
-          vantage point and see what it can hear.
-        </p>
-      </div>
+      {/* Says there is more, and nothing else. No chevron, no rule. */}
+      <a href="#how"
+         className="absolute left-1/2 -translate-x-1/2 bottom-11 z-10 colhead cursor-pointer
+                    hover:text-ink transition-colors duration-150 anim-rise"
+         style={{ animationDelay: '520ms' }}>
+        how it works ↓
+      </a>
+    </section>
+
+    <HowItWorks />
     </div>
   );
 }

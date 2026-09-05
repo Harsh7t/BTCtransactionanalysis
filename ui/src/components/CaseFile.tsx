@@ -57,9 +57,9 @@ export function CaseFile({ entity, onBack }: { entity: string; onBack: () => voi
   return (
     <div className="p-3">
       {/* --- case header ---------------------------------------------------- */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-rule px-1 py-1.5 sm:h-11 mb-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-rule px-1 py-2 sm:h-11 mb-3">
         <button onClick={onBack}
-                className="text-xs flex items-center gap-1.5 text-ink-soft hover:text-ink cursor-pointer transition-colors duration-150">
+                className="text-sm flex items-center gap-2 text-ink-soft hover:text-ink cursor-pointer transition-colors duration-150">
           <IconBack /> alerts
         </button>
         <span className="w-px h-5 bg-rule" />
@@ -67,24 +67,24 @@ export function CaseFile({ entity, onBack }: { entity: string; onBack: () => voi
           Case file — {a.entity}
         </span>
         <span className="text-2xs text-ink-dim hidden sm:inline">rank <span className="mono">{a.rank}</span> · run <span className="mono">{d.run_id}</span></span>
-        <div className="ml-auto flex flex-wrap items-center gap-1.5 no-print">
+        <div className="ml-auto flex flex-wrap items-center gap-2 no-print">
           {verdict
             ? <Tag layer={verdict === 'confirmed' ? 'confirm' : 'data'}>{verdict}</Tag>
             : null}
           <a href={api.exportUrl(entity)} target="_blank" rel="noreferrer"
-             className="text-xs px-2.5 h-7 inline-flex items-center gap-1.5 border border-rule
+             className="text-sm px-3 h-7 inline-flex items-center gap-2 border border-rule
                         text-ink-soft hover:text-ink hover:border-ink transition-colors duration-150">
             <IconExport /> export
           </a>
           <button onClick={() => decide('confirmed')} disabled={busy}
-                  className="text-xs px-2.5 h-7 inline-flex items-center gap-1.5 text-white
+                  className="text-sm px-3 h-7 inline-flex items-center gap-2
                              transition-opacity duration-150 hover:opacity-85 cursor-pointer
                              disabled:opacity-40 disabled:cursor-default"
-                  style={{ background: 'var(--confirm)' }}>
+                  style={{ background: 'var(--confirm)', color: 'var(--surface)' }}>
             <IconCheck /> confirm
           </button>
           <button onClick={() => decide('dismissed')} disabled={busy}
-                  className="text-xs px-2.5 h-7 inline-flex items-center gap-1.5 border
+                  className="text-sm px-3 h-7 inline-flex items-center gap-2 border
                              border-rule text-ink-soft hover:text-ink hover:border-ink
                              transition-colors duration-150
                              disabled:opacity-40 disabled:cursor-default">
@@ -106,10 +106,10 @@ export function CaseFile({ entity, onBack }: { entity: string; onBack: () => voi
           <Panel>
             <Eyebrow layer="fusion" right={`isotonic-calibrated`}>confidence</Eyebrow>
             <div className="flex items-end gap-3">
-              <span className="font-cond font-bold text-4xl leading-none">{fmt.conf(a.confidence)}</span>
+              <span className="font-cond font-bold text-3xl leading-none">{fmt.conf(a.confidence)}</span>
               <span className="mono text-sm text-ink-soft pb-1">± {fmt.conf(a.interval)}</span>
             </div>
-            <div className="mt-2.5">
+            <div className="mt-3">
               <Bar value={a.confidence} layer="fusion" width="100%" height={10} />
             </div>
             <div className="flex gap-4 mt-2 mono text-2xs text-ink-dim">
@@ -119,9 +119,9 @@ export function CaseFile({ entity, onBack }: { entity: string; onBack: () => voi
             </div>
 
             {counterfactuals.length > 0 && (
-              <div className="mt-3 border border-dashed border-rule bg-surface-2 p-3">
+              <div className="mt-3 bg-surface-2 p-3">
                 <Eyebrow layer="network">what would change this</Eyebrow>
-                <ul className="space-y-1.5">
+                <ul className="space-y-2">
                   {counterfactuals.map((c, i) => (
                     <li key={i} className="text-sm flex gap-2">
                       <span className="mono font-semibold shrink-0"
@@ -141,21 +141,21 @@ export function CaseFile({ entity, onBack }: { entity: string; onBack: () => voi
               <Eyebrow layer="chain" right={`${d.evidence.length} matcher${d.evidence.length > 1 ? 's' : ''}`}>
                 evidence chain
               </Eyebrow>
-              <div className="space-y-2.5">
+              <div className="space-y-3">
                 {d.evidence.map((e, i) => (
                   <div key={i} className="border border-rule-soft bg-surface-2">
-                    <div className="flex items-center gap-2 px-2.5 py-1.5 border-b border-rule-soft">
+                    <div className="flex items-center gap-2 px-3 py-2 border-b border-rule-soft">
                       <Tag layer="fusion">{fmt.typology(e.typology)}</Tag>
                       <span className="mono text-2xs text-ink-dim">strength {e.strength.toFixed(2)}</span>
                     </div>
-                    <p className="px-2.5 py-2 text-sm text-ink-soft">{e.summary}</p>
+                    <p className="px-3 py-2 text-sm text-ink-soft">{e.summary}</p>
                     {e.detail?.length > 0 && (
                       <table className="w-full border-t border-rule-soft">
                         <tbody>
                           {e.detail.map((row, j) => (
                             <tr key={j} className="border-b border-rule-soft last:border-0">
                               {Object.entries(row).map(([k, v]) => (
-                                <td key={k} className="px-2.5 py-1 mono text-2xs">
+                                <td key={k} className="px-3 py-1 mono text-2xs">
                                   <span className="text-ink-dim">{k.replace(/_/g, ' ')} </span>
                                   <span className="text-ink">{String(v).length > 24
                                     ? `${String(v).slice(0, 22)}…` : String(v)}</span>
@@ -182,19 +182,19 @@ export function CaseFile({ entity, onBack }: { entity: string; onBack: () => voi
                 <tbody>
                   {d.shap.slice(0, 8).map((s) => (
                     <tr key={s.feature} className="border-b border-rule-soft last:border-0">
-                      <td className="mono text-2xs py-1.5 pr-2 w-48 truncate" title={s.feature}>
+                      <td className="mono text-2xs py-2 pr-2 w-48 truncate" title={s.feature}>
                         {s.feature}
                       </td>
-                      <td className="py-1.5 w-32">
+                      <td className="py-2 w-32">
                         <Bar value={Math.abs(s.contribution)}
                              max={Math.abs(d.shap[0].contribution) || 1}
                              negative={s.contribution < 0} width={110} height={9} />
                       </td>
-                      <td className="mono text-2xs num py-1.5 pl-2 w-16"
+                      <td className="mono text-2xs num py-2 pl-2 w-16"
                           style={{ color: s.contribution > 0 ? 'var(--fusion)' : 'var(--data)' }}>
                         {s.contribution > 0 ? '+' : ''}{s.contribution.toFixed(3)}
                       </td>
-                      <td className="text-2xs text-ink-dim py-1.5 pl-3 hidden 2xl:table-cell">
+                      <td className="text-2xs text-ink-dim py-2 pl-3 hidden 2xl:table-cell">
                         {s.meaning}
                       </td>
                     </tr>
@@ -208,7 +208,7 @@ export function CaseFile({ entity, onBack }: { entity: string; onBack: () => voi
         {/* ================= RIGHT: the picture ============================ */}
         <div className="space-y-3 min-w-0">
           <Panel pad={false}>
-            <div className="px-3.5 pt-3">
+            <div className="px-4 pt-3">
               <Eyebrow layer="chain">link analysis</Eyebrow>
             </div>
             <GraphView entity={entity} />
@@ -240,22 +240,22 @@ export function CaseFile({ entity, onBack }: { entity: string; onBack: () => voi
                   <thead>
                     <tr className="border-b border-rule">
                       {['address', 'asn', 'type', 'obs', 'roots', 'p', 'confidence'].map((h, i) => (
-                        <th key={h} className={`colhead py-1.5 ${i >= 3 ? 'text-right' : 'text-left'}`}>{h}</th>
+                        <th key={h} className={`colhead py-2 ${i >= 3 ? 'text-right' : 'text-left'}`}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {d.attribution.map((c) => (
                       <tr key={c.ip} className="border-b border-rule-soft last:border-0">
-                        <td className="mono text-sm py-1.5">{c.ip}</td>
-                        <td className="mono text-2xs py-1.5 max-w-[9rem] truncate" title={c.asn_org}>
+                        <td className="mono text-sm py-2">{c.ip}</td>
+                        <td className="mono text-2xs py-2 max-w-[9rem] truncate" title={c.asn_org}>
                           AS{c.asn}
                         </td>
-                        <td className="py-1.5"><Tag layer="network">{c.asn_type}</Tag></td>
-                        <td className="mono text-2xs num py-1.5">{c.n_observations}</td>
-                        <td className="mono text-2xs num py-1.5">{c.root_hits}</td>
-                        <td className="mono text-2xs num py-1.5">{c.p_value.toExponential(1)}</td>
-                        <td className="num py-1.5">
+                        <td className="py-2"><Tag layer="network">{c.asn_type}</Tag></td>
+                        <td className="mono text-2xs num py-2">{c.n_observations}</td>
+                        <td className="mono text-2xs num py-2">{c.root_hits}</td>
+                        <td className="mono text-2xs num py-2">{c.p_value.toExponential(1)}</td>
+                        <td className="num py-2">
                           <span className="mono text-md font-semibold">{fmt.conf(c.confidence)}</span>
                           <span className="mono text-2xs text-ink-dim"> ±{fmt.conf(c.interval)}</span>
                         </td>

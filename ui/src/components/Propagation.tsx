@@ -32,6 +32,12 @@ type Wave = { origin: number; born: number; ring: number };
 const DENSITY = 6200;         // one node per N px² - keeps density constant at any size
 const MAX_NODES = 200;        // full-bleed needs a real mesh; 49 nodes read as dust
 const VANTAGE_R = 230;        // reach of the pointer's influence, in px - a falloff, not an edge
+/* The wave runs faster over the landing than behind the explainer. One canvas is
+   fixed behind the whole page, so the speed has to follow the scroll instead:
+   the hero wants a field with some life in it, the explainer wants it calm
+   behind text people are actually reading. */
+const WAVE_HERO = 1.9;        // multiplier at the top of the page
+const WAVE_CALM = 1.0;        // multiplier once the explainer fills the screen
 
 export function Propagation({ className = '' }: { className?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -42,6 +48,11 @@ export function Propagation({ className = '' }: { className?: string }) {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     let raf = 0, w = 0, h = 0, last = 0;
+    /* ACCUMULATED wave time, not `now`. The speed changes as the page scrolls,
+       and sin(now / T) with a changing T makes the phase jump the instant T
+       moves - the whole field would snap. Integrating dt * speed keeps the phase
+       continuous however the speed varies. */
+    let waveT = 0;
     let nodes: Node[] = [], edges: Edge[] = [], adj: number[][] = [];
     let pulses: Pulse[] = [], waves: Wave[] = [];
     let seenBy: Set<number>[] = [];
@@ -124,12 +135,42 @@ export function Propagation({ className = '' }: { className?: string }) {
         return false;
       });
 
+      // Speed eases from WAVE_HERO to WAVE_CALM across the first screenful, so
+      // the field settles as the explainer takes over rather than switching.
+      const k = Math.min(1, window.scrollY / Math.max(1, window.innerHeight * 0.85));
+      waveT += dt * (WAVE_HERO + (WAVE_CALM - WAVE_HERO) * k);
+
       const decay = Math.pow(0.5, dt / 1400);      // time-based half-life, not per-frame
       nodes.forEach((n, i) => {
         n.lit *= decay;
-        // Slow independent drift: the field breathes instead of sitting still.
-        n.x = n.hx + Math.sin(now / 5200 + n.phase) * 7;
-        n.y = n.hy + Math.cos(now / 6100 + n.phase * 1.3) * 7;
+        /* A TRAVELLING WAVE, not per-node shimmer.
+         *
+         * The phase used to be `n.phase` alone — a random constant per node — so
+         * every node bobbed on its own schedule and the field read as static
+         * noise that happened to jitter. Subtracting a term derived from the
+         * node's own POSITION makes the phase advance across space as well as
+         * time, so the whole mesh rolls in one direction: a wave crossing the
+         * page rather than two hundred independent wobbles.
+         *
+         * Two periods that do not divide (2600 / 3300) keep the crests from
+         * relanding in the same place, and a fifth-weight of the old random
+         * phase keeps it organic rather than mechanical. Still time-based, so it
+         * runs at the same speed on a 60Hz and a 120Hz display.
+         *
+         * AMPLITUDE AND WAVELENGTH ARE BOTH TUNED TO BE SEEN. Mean node spacing
+         * is sqrt(DENSITY) = 79px, so a 7px sway was 9% of the gap - present in
+         * the numbers, invisible on screen. 20px is a quarter of the spacing and
+         * unmistakable. A coherent wave tolerates that where random jitter would
+         * not: neighbours move almost together, so the mesh sways instead of
+         * tangling. The 190 divisor puts a little over one full crest across a
+         * 1400px screen; at 300 barely half a wave fitted and the whole field
+         * looked like it was sliding rather than rolling.
+         *
+         * Edges and dots need nothing of their own - both draw from n.x/n.y, and
+         * so do the pulses and the ripples - so the whole mesh waves together. */
+        const wx = (n.hx * 0.85 + n.hy * 0.52) / 190;
+        n.x = n.hx + Math.sin(waveT / 2600 - wx + n.phase * 0.2) * 20;
+        n.y = n.hy + Math.cos(waveT / 3300 - wx * 0.92 + n.phase * 0.2) * 16;
         const d = Math.hypot(n.x - ptr.x, n.y - ptr.y);
         const k = Math.max(0, 1 - d / VANTAGE_R);
         const want = ptr.on * k * k * (3 - 2 * k);   // smoothstep: no hard rim

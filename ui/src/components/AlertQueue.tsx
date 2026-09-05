@@ -22,7 +22,7 @@ export function IngestReceipt({ r }: { r: Receipt }) {
   const q = r.rows_quarantined ?? 0;
   return (
     <Panel pad={false} className="mb-3">
-      <div className="flex flex-wrap items-end gap-x-7 gap-y-3 px-3.5 py-3">
+      <div className="flex flex-wrap items-end gap-x-6 gap-y-3 px-4 py-3">
         {/* The headline claim of the whole demo, finally set at headline size.
             Six equal-weight stats gave the eye nowhere to land: the largest
             element on this screen used to be the 16px wordmark. */}
@@ -50,7 +50,7 @@ export function IngestReceipt({ r }: { r: Receipt }) {
         </div>
       </div>
       {/* Stage timings, inline. "500k records, 15 seconds" is a claim judges repeat. */}
-      <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-rule-soft bg-surface-2 px-3.5 py-1.5">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-rule-soft bg-surface-2 px-4 py-2">
         <span className="colhead">stage timings</span>
         {(() => {
           const t = Object.entries(r.timings || {});
@@ -212,19 +212,19 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
     <div className="p-3">
       <IngestReceipt r={receipt} />
 
-      <div className="flex items-center gap-0.5 mb-2.5" role="tablist"
+      <div className="flex items-center gap-0.5 mb-3" role="tablist"
            aria-label="Alert granularity">
         {(['entities', 'transactions'] as const).map((l) => (
           <button key={l} role="tab" aria-selected={level === l}
                   onClick={() => setLevel(l)}
-                  className="mono text-xs px-3 h-7 border transition-colors duration-150 cursor-pointer"
+                  className="mono text-sm px-3 h-7 border transition-colors duration-150 cursor-pointer"
                   style={level === l
                     ? { borderColor: 'var(--ink)', background: 'var(--ink)', color: 'var(--paper)' }
                     : { borderColor: 'var(--rule)', color: 'var(--ink-soft)' }}>
             {l}
           </button>
         ))}
-        <span className="mono text-2xs text-ink-dim ml-2.5">
+        <span className="mono text-2xs text-ink-dim ml-3">
           {level === 'entities'
             ? 'wallet clusters \u2014 the investigative unit'
             : 'individual TXIDs, scored by the transaction head'}
@@ -302,8 +302,8 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
       </div>
 
       {/* --- filters ------------------------------------------------------- */}
-      <div className="flex flex-wrap items-center gap-2 mb-2.5">
-        <span className="colhead flex items-center gap-1.5"><IconFilter className="w-3 h-3" />filters</span>
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <span className="colhead flex items-center gap-2"><IconFilter className="w-3 h-3" />filters</span>
         <Chip active={!typology} onClick={() => setTypology('')}>
           all typologies <span className="opacity-60">{alerts.length}</span>
         </Chip>
@@ -334,7 +334,7 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
         {/* `ml-auto` alone pinned this group to the right of a wrapping row, so
             on a narrow viewport it was pushed past the edge instead of wrapping
             under. `w-full` at mobile gives it its own line. */}
-        <div className="w-full lg:w-auto lg:ml-auto flex items-center gap-2.5">
+        <div className="w-full lg:w-auto lg:ml-auto flex items-center gap-3">
           <label htmlFor="thr" className="colhead">confidence threshold</label>
           <input id="thr" type="range" min={0.05} max={0.95} step={0.05} value={threshold}
                  className="w-40"
@@ -388,24 +388,24 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
                     className={`anim-rise row-hover border-b border-rule-soft cursor-pointer
                       ${below ? 'opacity-55' : ''}
                       ${ri === cursor ? 'bg-chain-wash outline outline-1 -outline-offset-1 outline-chain' : ''}`}>
-                  <td className="px-3 py-1.5 align-top num">
+                  <td className="px-3 py-2 align-top num">
                     {/* Right-aligned: left-aligned ranks put the units digit of 1,
                         10 and 60 in three different places. */}
                     <span className={a.rank <= 3
                       ? 'mono text-lg font-semibold text-ink'
                       : 'mono text-sm text-ink-dim'}>{a.rank}</span>
                   </td>
-                  <td className="px-3 py-1.5 align-top">
+                  <td className="px-3 py-2 align-top">
                     <div className="mono text-md font-semibold text-ink whitespace-nowrap">{a.entity}</div>
                     <div className="text-2xs whitespace-nowrap flex items-center gap-1">
                       <span className="text-chain"><span className="mono">{fmt.int(a.n_addresses)}</span> addr</span>
-                      <span className="text-rule">·</span>
+                      <span aria-hidden className="text-rule">·</span>
                       <span className="text-chain"><span className="mono">{fmt.int(a.n_tx)}</span> tx</span>
-                      <span className="text-rule">·</span>
+                      <span aria-hidden className="text-rule">·</span>
                       <span className="text-network"><span className="mono">{fmt.int(a.n_ips)}</span> IP</span>
                     </div>
                   </td>
-                  <td className="px-3 py-1.5 align-top max-w-[16rem]">
+                  <td className="px-3 py-2 align-top max-w-[16rem]">
                     {a.raised_by === 'novelty' ? (
                       <Tag layer="network"
                            title="The classifier ranked this low; the novelty detector ranked it high. Reserved-slot alert - the answer to typologies nobody labelled.">
@@ -426,7 +426,7 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
                       </Tag>
                     )}
                   </td>
-                  <td className="px-3 py-1.5 align-top">
+                  <td className="px-3 py-2 align-top">
                     {/* A magnitude bar over a constant is noise. Scores across this
                         whole queue span 0.961-0.999, so 56 of 60 bars were pixel
                         identical and the column carried no information at all.
@@ -436,7 +436,7 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
                       <span className="mono text-md font-semibold">{fmt.conf(a.confidence)}</span>
                       <span className="text-2xs text-ink-dim">±{fmt.conf(a.interval)}</span>
                     </div>
-                    <div className="flex items-center gap-1.5 mt-1"
+                    <div className="flex items-center gap-2 mt-1"
                          title={`supervised ${fmt.conf(a.supervised)} · novelty ${fmt.conf(a.novelty)}`}>
                       <span className="colhead" style={{ letterSpacing: '.04em' }}>sup</span>
                       <Bar value={a.supervised} layer="fusion" width={44} height={6}
@@ -446,10 +446,10 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
                            delay={Math.min(a.rank, 14) * 18 + 60} />
                     </div>
                   </td>
-                  <td className="px-3 py-1.5 align-top num">
+                  <td className="px-3 py-2 align-top num">
                     <span className="mono text-sm text-network">{fmt.conf(a.novelty)}</span>
                   </td>
-                  <td className="px-3 py-1.5 align-top">
+                  <td className="px-3 py-2 align-top">
                     {a.attribution_status === 'ok' && a.top_asn ? (
                       <>
                         {/* 4 rows in 60. This is the product's entire thesis
@@ -471,7 +471,7 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
                          with the full reason on hover. Suppression is a correct
                          outcome, not a failure, and it does not need to shout
                          54 times to say so. */
-                      <div className="text-2xs text-ink-dim flex items-center gap-1.5"
+                      <div className="text-2xs text-ink-dim flex items-center gap-2"
                            title={a.attribution_status === 'suppressed'
                              ? 'Attribution suppressed: the announcing IPs belong to shared infrastructure, so naming an owner would be a guess.'
                              : 'No entity-IP association survived FDR control.'}>
@@ -482,7 +482,7 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
                       </div>
                     )}
                   </td>
-                  <td className="px-3 py-1.5 align-top num">
+                  <td className="px-3 py-2 align-top num">
                     <div className="mono text-md font-semibold whitespace-nowrap text-chain">
                       ₿ {fmt.btc(a.total_out)}
                     </div>
@@ -490,7 +490,7 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
                       in <span className="mono">₿ {fmt.btc(a.total_in)}</span>
                     </div>
                   </td>
-                  <td className="px-2 py-1.5 align-top">
+                  <td className="px-2 py-2 align-top">
                     {a.verdict
                       ? <Tag layer={a.verdict === 'confirmed' ? 'confirm' : 'data'}>{a.verdict}</Tag>
                       : null}
@@ -514,7 +514,7 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
 
       {/* --- what we are NOT showing, and what it would cost to look -------- */}
       <Panel className="mt-3" pad={false}>
-        <div className="flex items-start gap-5 px-3.5 py-3">
+        <div className="flex items-start gap-6 px-4 py-3">
           <div className="flex-1">
             <Eyebrow>below threshold</Eyebrow>
             <p className="text-sm text-ink-soft max-w-[78ch]">

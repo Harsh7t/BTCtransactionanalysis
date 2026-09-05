@@ -23,10 +23,10 @@ function Row({ label, value, layer, note }: {
 }) {
   return (
     <tr className="border-b border-rule-soft last:border-0">
-      <td className="py-1.5 text-sm text-ink-soft">{label}
+      <td className="py-2 text-sm text-ink-soft">{label}
         {note ? <span className="block mono text-2xs text-ink-dim">{note}</span> : null}
       </td>
-      <td className="py-1.5 num mono text-md font-semibold"
+      <td className="py-2 num mono text-md font-semibold"
           style={layer ? { color: `var(--${layer})` } : undefined}>{value}</td>
     </tr>
   );
@@ -75,7 +75,7 @@ export function ModelPanel() {
 
     </div>
       {/* provenance strip */}
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 bg-surface-2 border-y border-rule px-3.5 py-2">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-1 bg-surface-2 border-y border-rule px-4 py-2">
         <span className="font-cond font-bold text-md text-ink">Model panel</span>
         <span className="mono text-2xs text-ink-soft">
           artifacts/{man.version} · feature_version {man.feature_version} · seed {man.seed}
@@ -169,8 +169,8 @@ export function ModelPanel() {
           <Eyebrow layer={leak?.passed ? 'confirm' : 'danger'}>generator integrity — leak test</Eyebrow>
           {!leak ? <p className="text-sm text-ink-soft">Not run. <span className="mono">make leak-test</span></p> : (
             <>
-              <div className="flex items-center gap-2.5 mb-2">
-                <span className="font-cond font-bold uppercase text-xl"
+              <div className="flex items-center gap-3 mb-2">
+                <span className="font-cond font-bold uppercase text-lg"
                       style={{ color: leak.passed ? 'var(--confirm)' : 'var(--danger)' }}>
                   {leak.passed ? 'PASSED' : 'FAILED'}
                 </span>
@@ -210,7 +210,7 @@ export function ModelPanel() {
         <div className="space-y-3">
           <Panel>
             <Eyebrow layer="network">generalisation to unseen typologies</Eyebrow>
-            <div className="flex items-end gap-3 mb-1.5">
+            <div className="flex items-end gap-3 mb-2">
               <span className="font-cond font-bold text-3xl leading-none">{pct(ho.recall_at_threshold)}</span>
               <span className="mono text-sm text-ink-soft pb-1">
                 recall on {ho.n_holdout_positives ?? 0} entities · PR-AUC {pct(ho.pr_auc)}
@@ -333,7 +333,7 @@ export function ModelPanel() {
           <Eyebrow layer="danger">failure gallery — cases we get wrong</Eyebrow>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
             {met.failure_gallery.slice(0, 6).map((f: any) => (
-              <div key={f.entity + f.kind} className="border border-rule bg-surface-2 p-3">
+              <div key={f.entity + f.kind} className="bg-surface-2 p-3">
                 <div className="flex items-center gap-2 mb-1">
                   <Tag layer={f.kind === 'false_positive' ? 'fusion' : 'network'}>
                     {f.kind.replace('_', ' ')}
@@ -436,7 +436,7 @@ export function ModelPanel() {
                 <tr className="border-b border-rule">
                   {['supervised', 'novelty', 'evidence', 'test PR-AUC', 'P@10', 'P@50',
                     'held-out recall', ''].map((h, i) => (
-                    <th key={h + i} className={`eyebrow py-1.5 ${i >= 3 && i < 7 ? 'text-right' : 'text-left'}`}>{h}</th>
+                    <th key={h + i} className={`eyebrow py-2 ${i >= 3 && i < 7 ? 'text-right' : 'text-left'}`}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -445,16 +445,16 @@ export function ModelPanel() {
                   <tr key={i}
                       className="border-b border-rule-soft last:border-0"
                       style={f.shipped ? { background: 'var(--fusion-wash)' } : undefined}>
-                    <td className="mono text-sm py-1.5">{f.supervised.toFixed(2)}</td>
-                    <td className="mono text-sm py-1.5">{f.novelty.toFixed(2)}</td>
-                    <td className="mono text-sm py-1.5">{f.evidence.toFixed(2)}</td>
-                    <td className="num mono text-sm py-1.5">{pct(f.test_pr_auc)}</td>
-                    <td className="num mono text-sm py-1.5">{pct(f.precision_at_10)}</td>
-                    <td className="num mono text-sm py-1.5">{pct(f.precision_at_50)}</td>
-                    <td className="num mono text-sm py-1.5" style={{ color: 'var(--network)' }}>
+                    <td className="mono text-sm py-2">{f.supervised.toFixed(2)}</td>
+                    <td className="mono text-sm py-2">{f.novelty.toFixed(2)}</td>
+                    <td className="mono text-sm py-2">{f.evidence.toFixed(2)}</td>
+                    <td className="num mono text-sm py-2">{pct(f.test_pr_auc)}</td>
+                    <td className="num mono text-sm py-2">{pct(f.precision_at_10)}</td>
+                    <td className="num mono text-sm py-2">{pct(f.precision_at_50)}</td>
+                    <td className="num mono text-sm py-2" style={{ color: 'var(--network)' }}>
                       {pct(f.holdout_recall)}
                     </td>
-                    <td className="py-1.5 pl-3">
+                    <td className="py-2 pl-3">
                       {f.shipped ? <Tag layer="fusion">shipped</Tag> : null}
                     </td>
                   </tr>

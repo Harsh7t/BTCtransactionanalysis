@@ -22,11 +22,21 @@ export default {
         cond: ['Archivo', 'system-ui', 'sans-serif'],
         mono: ['Spline Sans Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
+      /* SIX SIZES, WITH REAL STEPS BETWEEN THEM.
+         Ten were declared and 78% of every use landed on the two smallest, so
+         hierarchy was carried almost entirely by weight and colour - the mirror
+         image of the mono monoculture this interface already fixed once. `xs`
+         (11.5) sat inside 2px of both its neighbours; `xl` had two uses and
+         `4xl` had one. Gone. `md` and `lg` were widened so prose and
+         sub-headings are separated by something a reader can actually see. */
       fontSize: {
-        '2xs': ['10.5px', '14px'], xs: ['11.5px', '16px'], sm: ['12px', '17px'],
-        base: ['13px', '19px'], md: ['14px', '20px'], lg: ['16px', '22px'],
-        xl: ['19px', '24px'], '2xl': ['24px', '28px'], '3xl': ['34px', '36px'],
-        '4xl': ['44px', '44px'],
+        '2xs': ['11px', '15px'],     // metadata: colheads, tags, receipts
+        sm:    ['12px', '17px'],     // dense values and control labels
+        base:  ['13px', '19px'],     // the body default
+        md:    ['16px', '23px'],     // prose meant to be read
+        lg:    ['18px', '25px'],     // sub-headings
+        '2xl': ['24px', '28px'],
+        '3xl': ['34px', '36px'],
       },
       borderRadius: { DEFAULT: '2px', none: '0', sm: '1px', md: '2px' },
       spacing: { '0.5': '2px', '1.5': '6px', '2.5': '10px', '3.5': '14px', '4.5': '18px' },

@@ -41,19 +41,19 @@ export function Provenance() {
               ['git sha', prov.git_sha], ['embedding backend', prov.embedding_backend],
             ].map(([k, v]) => (
               <tr key={String(k)} className="border-b border-rule-soft last:border-0">
-                <td className="eyebrow py-1.5 w-44">{k}</td>
-                <td className="mono text-sm py-1.5 break-all">{String(v ?? '—')}</td>
+                <td className="eyebrow py-2 w-44">{k}</td>
+                <td className="mono text-sm py-2 break-all">{String(v ?? '—')}</td>
               </tr>
             ))}
             <tr>
-              <td className="eyebrow py-1.5 align-top">source sha-256</td>
-              <td className="mono text-2xs py-1.5 break-all leading-relaxed">
+              <td className="eyebrow py-2 align-top">source sha-256</td>
+              <td className="mono text-2xs py-2 break-all leading-relaxed">
                 {prov.source_sha256}
               </td>
             </tr>
           </tbody>
         </table>
-        <p className="text-sm text-ink-soft mt-2.5">
+        <p className="text-sm text-ink-soft mt-3">
           Every figure in a case file exported from this run traces to this hash and this seed.
           <span className="mono"> make reproduce</span> regenerates them.
         </p>
@@ -95,13 +95,13 @@ export function Provenance() {
                   fmt.int(Number(r.enrichment?.supplied_vs_derived_asn_mismatch ?? 0))],
               ].map(([k, v]) => (
                 <tr key={String(k)} className="border-b border-rule-soft last:border-0">
-                  <td className="text-sm py-1.5 text-ink-soft">{k}</td>
-                  <td className="num mono text-sm py-1.5">{String(v)}</td>
+                  <td className="text-sm py-2 text-ink-soft">{k}</td>
+                  <td className="num mono text-sm py-2">{String(v)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <p className="text-sm text-ink-soft mt-2.5">
+          <p className="text-sm text-ink-soft mt-3">
             Rejected rows are quarantined with a reason, never dropped silently — a silent drop
             corrupts every downstream number and leaves no trace that it happened. The system
             also re-derives country and ASN from the bundled GeoIP database and reports where

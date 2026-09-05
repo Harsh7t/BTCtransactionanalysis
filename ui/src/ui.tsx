@@ -7,7 +7,7 @@
  * one treatment with no focal point on any screen. The dial that fixes that is
  * `weight` on Panel, not more borders.
  */
-import { useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode, CSSProperties } from 'react';
 
 export type Layer = 'chain' | 'network' | 'fusion' | 'confirm' | 'data' | 'danger';
@@ -37,6 +37,25 @@ export function Eyebrow({ children, layer, right }:
   );
 }
 
+/** True inside a region that already draws a frame. Consumed by Panel.
+ *
+ * ONE FRAME BETWEEN A LEAF AND THE PAGE. Measured before this existed: every
+ * leaf in the landing explainer sat inside 2-4 bordered ancestors - 94 leaves at
+ * depth 2, 64 at depth 3, and none at all below 2. Boxes inside boxes inside
+ * boxes is the single loudest dated signal in this interface, and it is the same
+ * argument the panel weights already make: when every region is framed, the
+ * frame says nothing.
+ *
+ * A nested Panel therefore renders `panel-sub` - filled, borderless - which is
+ * exactly what that weight was defined for. Single-edge accent rules are NOT
+ * frames and do not count; they carry a layer, not a boundary. */
+const Framed = createContext(false);
+
+/** Wrap any hand-rolled bordered region so Panels inside it know to go flat. */
+export function Frame({ children }: { children: ReactNode }) {
+  return <Framed.Provider value={true}>{children}</Framed.Provider>;
+}
+
 /** A bordered region.
  *
  * `accent` NAMES the evidence layer this panel belongs to. It used to do that
@@ -52,21 +71,27 @@ export function Panel({ children, accent, weight = 'standard', className = '', p
   children: ReactNode; accent?: Layer; weight?: 'primary' | 'standard' | 'sub';
   className?: string; pad?: boolean; style?: CSSProperties;
 }) {
-  const frame = weight === 'primary' ? 'panel-primary'
+  const nested = useContext(Framed);
+  // Inside an existing frame, every weight collapses to the filled one. The
+  // accent rule survives - it names a layer, it is not a boundary.
+  const frame = nested ? 'panel-sub'
+    : weight === 'primary' ? 'panel-primary'
     : weight === 'sub' ? 'panel-sub'
     : 'bg-surface border border-rule';
   return (
-    <section
-      className={`${frame} ${pad ? 'p-3.5' : ''} ${className}`}
-      style={{ ...(accent ? { borderLeft: `2px solid ${LAYER_VAR[accent]}` } : {}), ...style }}
-    >
-      {accent ? (
-        <span className="colhead block mb-1.5" style={{ color: LAYER_VAR[accent] }}>
-          {accent} layer
-        </span>
-      ) : null}
-      {children}
-    </section>
+    <Framed.Provider value={true}>
+      <section
+        className={`${frame} ${pad ? 'p-4' : ''} ${className}`}
+        style={{ ...(accent ? { borderLeft: `2px solid ${LAYER_VAR[accent]}` } : {}), ...style }}
+      >
+        {accent ? (
+          <span className="colhead block mb-2" style={{ color: LAYER_VAR[accent] }}>
+            {accent} layer
+          </span>
+        ) : null}
+        {children}
+      </section>
+    </Framed.Provider>
   );
 }
 
@@ -104,7 +129,7 @@ export function Bar({ value, max = 1, layer = 'fusion', width = 150, height = 8,
   const pct = Math.max(0, Math.min(1, Math.abs(value) / (max || 1)));
   return (
     <span
-      className="inline-block align-middle bg-surface-3 border border-rule-soft"
+      className="inline-block align-middle bg-surface-3"
       style={{ width, height }}
       role="img"
       aria-label={`${value.toFixed(3)} of ${max}`}
@@ -171,14 +196,21 @@ export function Counter({ value, decimals = 0, format, className = '', duration 
   return <span className={className}>{text}</span>;
 }
 
-/** Small square-cornered tag. Never used decoratively — always carries a fact. */
+/** Small square-cornered tag. Never used decoratively — always carries a fact.
+ *
+ * Filled, not outlined. It carried a wash background AND a coloured border of
+ * the same hue, which is the same claim made twice; the wash alone already makes
+ * it a token. Dropping the border removed 36 frame-in-frame nestings on the
+ * Model screen alone. Contrast is unaffected — the text was always measured
+ * against the wash, which is why --fusion is #8C5B0E (5.39:1 on its own wash)
+ * rather than the #B8791C that failed at 3.36:1. */
 export function Tag({ children, layer = 'data', title }:
   { children: ReactNode; layer?: Layer; title?: string }) {
   return (
     <span
       title={title}
-      className="mono text-2xs px-1.5 py-0.5 border whitespace-nowrap"
-      style={{ color: LAYER_VAR[layer], borderColor: LAYER_VAR[layer], background: LAYER_WASH[layer] }}
+      className="mono text-2xs px-2 py-0.5 whitespace-nowrap"
+      style={{ color: LAYER_VAR[layer], background: LAYER_WASH[layer] }}
     >
       {children}
     </span>
@@ -190,11 +222,11 @@ export function Button({ children, onClick, variant = 'default', disabled, title
   variant?: 'default' | 'primary' | 'ghost' | 'danger'; type?: 'button' | 'submit';
 }) {
   const base =
-    'mono text-xs px-2.5 h-8 inline-flex items-center gap-1.5 border transition-colors ' +
+    'mono text-sm px-3 h-8 inline-flex items-center gap-2 border transition-colors ' +
     'duration-150 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer select-none';
   const v = {
     default: 'bg-surface border-ink text-ink hover:bg-surface-3',
-    primary: 'text-white border-transparent hover:opacity-90',
+    primary: 'border-transparent hover:opacity-90',
     ghost: 'bg-transparent border-rule text-ink-soft hover:bg-surface-3 hover:text-ink',
     danger: 'bg-surface border-danger text-danger hover:bg-danger-wash',
   }[variant];
@@ -202,7 +234,8 @@ export function Button({ children, onClick, variant = 'default', disabled, title
     <button
       type={type || 'button'} onClick={onClick} disabled={disabled} title={title}
       className={`${base} ${v}`}
-      style={variant === 'primary' ? { background: 'var(--confirm)' } : undefined}
+      style={variant === 'primary'
+        ? { background: 'var(--confirm)', color: 'var(--surface)' } : undefined}
     >
       {children}
     </button>
@@ -217,7 +250,7 @@ export function Chip({ active, onClick, children, layer = 'fusion', disabled }: 
   return (
     <button
       onClick={onClick} aria-pressed={!!active} disabled={disabled}
-      className="text-xs px-2.5 h-7 border transition-colors duration-150 whitespace-nowrap
+      className="text-sm px-3 h-7 border transition-colors duration-150 whitespace-nowrap
                  cursor-pointer disabled:opacity-40 disabled:cursor-default"
       style={active
         ? { color: LAYER_VAR[layer], borderColor: LAYER_VAR[layer], background: LAYER_WASH[layer] }
@@ -232,7 +265,7 @@ export function Chip({ active, onClick, children, layer = 'fusion', disabled }: 
 export function Notice({ title, children, layer = 'data' }:
   { title: string; children?: ReactNode; layer?: Layer }) {
   return (
-    <div className="border border-rule bg-surface-2 p-4" style={{ borderLeft: `2px solid ${LAYER_VAR[layer]}` }}>
+    <div className="bg-surface-2 p-4" style={{ borderLeft: `2px solid ${LAYER_VAR[layer]}` }}>
       <div className="font-cond font-semibold uppercase text-md tracking-tight">{title}</div>
       {children ? <div className="text-sm text-ink-soft mt-1 max-w-[70ch]">{children}</div> : null}
     </div>

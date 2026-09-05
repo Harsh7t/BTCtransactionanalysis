@@ -81,8 +81,12 @@ export default function App() {
   const running = job?.state === 'running';
   const showingStart = !running && (!entered || (!runReady && view.tab !== 'model'));
 
+  // The landing no longer pins itself to the viewport: it has an explainer under
+  // the fold, so the PAGE scrolls there the way it does on the queue - which is
+  // also what makes the header's scrolled-ground state work there. Only the
+  // scoring screen still owns its own height.
   return (
-    <div className={`flex flex-col ${showingStart || running ? "h-full" : "min-h-full"}`}>
+    <div className={`flex flex-col ${running ? 'h-full' : 'min-h-full'}`}>
       {/* ---------------- chrome ---------------- */}
       {/* The chrome bar is gone. It used to be a solid near-black slab sitting ON
           the page; now the header is the page - transparent, separated by one
@@ -92,7 +96,7 @@ export default function App() {
           It gains a ground only once the content scrolls under it, because a
           transparent bar over moving text is unreadable the moment you scroll. */}
       <header className={`sticky top-0 z-30 shrink-0 h-12 flex items-center gap-2 sm:gap-4
-                          px-3 sm:px-5 border-b transition-colors duration-200
+                          px-3 sm:px-6 border-b transition-colors duration-200
                           ${scrolled ? 'bg-surface border-rule' : 'bg-transparent border-transparent'}`}>
         {/* The masthead is the way home. During a run it is not: the scoring
             screen takes precedence over the landing anyway, so leaving it
@@ -125,7 +129,7 @@ export default function App() {
                 <button key={t}
                         onClick={() => { setEntered(true); go(t); }}
                         aria-current={active ? 'page' : undefined}
-                        className={`text-xs px-2 sm:px-3 h-12 border-b-2 cursor-pointer
+                        className={`text-sm px-2 sm:px-3 h-12 border-b-2 cursor-pointer
                                     transition-colors duration-150
                                     ${active ? 'border-ink text-ink'
                                              : 'border-transparent text-ink-dim hover:text-ink-soft'}`}>
@@ -142,7 +146,7 @@ export default function App() {
             </span>
           )}
           {health && (
-            <span className="text-2xs hidden sm:flex items-center gap-1.5 text-ink-soft"
+            <span className="text-2xs hidden sm:flex items-center gap-2 text-ink-soft"
                   title="No network calls are made at any point">
               <span className="w-1.5 h-1.5 inline-block" style={{ background: 'var(--confirm)' }} />
               OFFLINE
@@ -187,23 +191,27 @@ export default function App() {
       </main>
 
       {/* ---------------- status bar ---------------- */}
-      <footer className="bg-surface border-t border-rule px-3.5 py-1.5 flex flex-wrap
-                         items-center gap-x-5 gap-y-1 shrink-0 no-print">
+      <footer className="bg-surface border-t border-rule px-4 py-2 flex flex-wrap
+                         items-center gap-x-6 gap-y-1 shrink-0 no-print">
         <span className="text-2xs text-ink-dim">
           SIH 2026 · PS 26146 · NTRO · Blockchain &amp; Cybersecurity
         </span>
 
         {/* The layer palette is the one thing in this interface a viewer cannot
-            infer. It was documented only in a CSS comment, so every coloured
-            rule and figure on every screen was undecodable by design. */}
+            infer, so it is spelled out where they first meet it - the landing.
+            Everywhere after that it collapses to four swatches with the words in
+            a title: a reminder, not a legend re-taught on every screen. Four
+            labels under all five screens is permanent chrome for a fact you
+            learn once. */}
         <span className="flex items-center gap-3" aria-label="Colour key">
           {([['chain', 'chain layer'], ['network', 'network layer'],
              ['fusion', 'model output'], ['confirm', 'analyst action']] as const)
             .map(([k, label]) => (
-              <span key={k} className="flex items-center gap-1.5 text-2xs text-ink-dim">
+              <span key={k} title={label}
+                    className="flex items-center gap-2 text-2xs text-ink-dim">
                 <span aria-hidden className="w-2 h-2 inline-block"
                       style={{ background: `var(--${k})` }} />
-                {label}
+                <span className={showingStart ? '' : 'sr-only'}>{label}</span>
               </span>
             ))}
         </span>

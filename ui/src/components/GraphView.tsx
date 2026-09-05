@@ -161,11 +161,11 @@ export function GraphView({ entity }: { entity: string }) {
     return () => { inst.destroy(); cy.current = null; };
   }, [data, entity, sub, themeTick]);
 
-  if (err) return <div className="p-3.5 text-sm text-danger">{err}</div>;
+  if (err) return <div className="p-4 text-sm text-danger">{err}</div>;
 
   return (
     <div>
-      <div className="flex items-center gap-2 px-3.5 pb-2">
+      <div className="flex items-center gap-2 px-4 pb-2">
         <span className="mono text-2xs text-ink-dim">
           {data ? <>showing <b className="text-ink">{fmt.int(data.meta.nodes_shown)}</b> nodes
             · {fmt.int(data.edges.length)} edges · {data.meta.hops} hop{data.meta.hops > 1 ? 's' : ''}
@@ -174,7 +174,7 @@ export function GraphView({ entity }: { entity: string }) {
               · {sub.transactions.length} transactions</span> : null}</>
             : 'extracting subgraph…'}
         </span>
-        <div className="ml-auto flex items-center gap-1.5 no-print">
+        <div className="ml-auto flex items-center gap-2 no-print">
           {[1, 2, 3].map((h) => (
             <button key={h} onClick={() => setHops(h)} aria-pressed={hops === h}
                     className="mono text-2xs w-7 h-6 border transition-colors duration-150 cursor-pointer"
@@ -201,19 +201,19 @@ export function GraphView({ entity }: { entity: string }) {
         )}
         <div ref={box} className="w-full h-full" />
         {sel && (
-          <div className="absolute bottom-2 left-2 bg-surface border border-rule px-2.5 py-1.5">
+          <div className="absolute bottom-2 left-2 bg-surface border border-rule px-3 py-2">
             <span className="mono text-2xs text-ink-dim">selected </span>
             <span className="mono text-sm font-semibold">{sel}</span>
           </div>
         )}
       </div>
 
-      <div className="flex flex-wrap gap-x-4 gap-y-1 px-3.5 py-2 border-t border-rule bg-surface-2">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 px-4 py-2 border-t border-rule bg-surface-2">
         {[['#0E1C27', 'subject'], ['#B8791C', 'alerted entity'],
           ['#AEB9C3', 'neighbourhood'], ['#7B4B94', 'high-value edge'],
           ...(sub ? [['#2D6A9F', 'wallet (address)'], ['#5C6B78', 'transaction']] : []),
         ].map(([c, l]) => (
-          <span key={l} className="mono text-2xs text-ink-soft flex items-center gap-1.5">
+          <span key={l} className="mono text-2xs text-ink-soft flex items-center gap-2">
             <span className="w-2.5 h-2.5 inline-block" style={{ background: c }} />{l}
           </span>
         ))}

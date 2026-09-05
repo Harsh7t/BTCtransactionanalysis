@@ -175,6 +175,13 @@
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; }
 
+/* The landing's "how it works" cue is a plain in-page anchor; this is what makes
+   it travel rather than teleport. Opted out under reduced motion, where a long
+   animated scroll is exactly the kind of motion that was opted out of. */
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+
 body {
   margin: 0;
   background: var(--paper);
@@ -308,6 +315,54 @@ input[type='range']::-moz-range-thumb {
   background: var(--chain);
   animation: ping-soft 1.6s cubic-bezier(0, 0, .2, 1) infinite;
 }
+
+/* --- Plate ground --------------------------------------------------------
+   The explainer under the landing hero used to be one flat slab of --paper,
+   which is a wall, not a ground. This is the paper the plates are printed on:
+   a 40px minor rule and a 200px major one, in the SAME --rule-soft / --rule the
+   panels use, so the ground steps with the theme instead of becoming a texture
+   with a colour of its own. No new hue, no gradient encoding nothing, nothing
+   to decode - it is graph paper, and a schematic belongs on graph paper.
+
+   Kept faint on purpose: it must read at arm's length and disappear at reading
+   distance. Panels paint their own --surface over it, so the grid survives only
+   in the gutters, which is where structure is wanted. */
+.plate-grid {
+  background-image:
+    repeating-linear-gradient(to right,
+      color-mix(in srgb, var(--rule) 55%, transparent) 0 1px, transparent 1px 200px),
+    repeating-linear-gradient(to bottom,
+      color-mix(in srgb, var(--rule) 55%, transparent) 0 1px, transparent 1px 200px),
+    repeating-linear-gradient(to right,
+      color-mix(in srgb, var(--rule-soft) 60%, transparent) 0 1px, transparent 1px 40px),
+    repeating-linear-gradient(to bottom,
+      color-mix(in srgb, var(--rule-soft) 60%, transparent) 0 1px, transparent 1px 40px);
+  background-position: 0 0;
+}
+
+/* --- Frames, spacing, type: the three rules that keep this modern ------------
+
+   ONE FRAME BETWEEN A LEAF AND THE PAGE. A frame is a border on three or more
+   sides. Measured before this rule existed: every leaf in the landing explainer
+   sat inside 2-4 of them, the Model screen had 36 at depth 2 and 6 at depth 3.
+   Boxes inside boxes is the loudest dated signal an interface can have, and it
+   is the same argument the panel weights already make - when every region is
+   framed, the frame says nothing. Inside a frame, separate with a background
+   step (--surface-2/-3) and space. NOT with another border, and never with a
+   border ON TOP of a fill: that is the same separation stated twice.
+   `Panel` enforces this itself through context; hand-rolled frames must not
+   re-introduce it. Single-edge accent rules are not frames - they carry a layer,
+   not a boundary - and neither are inline controls (buttons, chips, inputs),
+   whose border is what makes them objects.
+
+   SPACING IS A SCALE, NOT A CHOICE. 2 4 8 12 16 24 32 48 (0.5 1 2 3 4 6 8 12),
+   plus `gap-px` where a 1px gap is drawing a rule. There were 19 distinct values
+   before, most within 2px of a neighbour and doing no work.
+
+   SIX TYPE SIZES. See tailwind.config.js. Ten were declared and 78% of every use
+   landed on the two smallest, so hierarchy was carried almost entirely by weight
+   and colour - the mirror image of the mono monoculture this interface already
+   fixed once. */
 
 /* --- Panel weight ---------------------------------------------------------
    Three weights, and the accent is capped at one panel per screen. Previously
