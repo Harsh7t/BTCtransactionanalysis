@@ -16,7 +16,7 @@ applies ML to produce ranked, explainable investigative leads. Runs entirely off
 ```bash
 # 1. install uv (one time, skip if `uv --version` already works)
 curl -LsSf https://astral.sh/uv/install.sh | sh
-source $HOME/.local/bin/env
+export PATH="$HOME/.local/bin:$PATH"     # or just reopen the terminal
 
 # 2. clone and set up — this is the only step that needs network
 git clone https://github.com/Harsh7t/BTCtransactionanalysis.git
@@ -73,7 +73,7 @@ cd BTCtransactionanalysis
 
 | Error | Fix |
 |---|---|
-| `uv: No such file or directory` | uv is not installed or not on PATH. Run the install command above, then `source $HOME/.local/bin/env` — or `brew install uv`. |
+| `uv: No such file or directory` | uv is not installed or not on PATH. Run the install command above, then `export PATH="$HOME/.local/bin:$PATH"` (or reopen the terminal). `brew install uv` handles PATH for you. |
 | `node: command not found` / `npm ci` fails | Install Node.js: `brew install node`, or from [nodejs.org](https://nodejs.org). |
 | `make: command not found` (macOS) | `xcode-select --install` |
 | `.venv/bin/python: No such file or directory` | Setup did not finish. Fix the error above it and re-run `make bootstrap`. |
