@@ -9,6 +9,52 @@ applies ML to produce ranked, explainable investigative leads. Runs entirely off
 
 ---
 
+## Start the demo
+
+**Prerequisites:** Python 3.11+, Node.js, [`uv`](https://docs.astral.sh/uv/), and `make`.
+
+```bash
+git clone https://github.com/Harsh7t/BTCtransactionanalysis.git
+cd BTCtransactionanalysis
+```
+
+```bash
+make setup        # once, and the only step that needs network: venv + deps + UI bundle
+make generate     # synthesise a labelled capture — sample data is too large for git
+make serve        # http://localhost:8000
+```
+
+Open **http://localhost:8000**, then either drop a capture file on the landing page or
+click one of the bundled samples. Scoring runs live: nine stages, a progress track, and
+then the ranked alert queue. Open any row for the case file — evidence, SHAP reasons,
+the money graph and the network attribution.
+
+**The trained models are committed**, so `make generate` + `make serve` is all it takes to
+see the product. You do not need to train anything.
+
+Want a sample that scores in seconds rather than ~14 s? Generate the small profile too:
+
+```bash
+.venv/bin/python -m btcfusion.cli generate --name judge --profile smoke --format all
+```
+
+That writes `judge.csv` / `.jsonl` / `.xml` — the same capture in all three formats, which
+is what proves they parse to identical row counts.
+
+Once `make setup` has run, **unplug the network cable.** Nothing here makes an outbound
+request; `make offline-check` fails the build if any application file references a remote
+host, and `make docker-verify` runs the whole pipeline under `--network none`.
+
+### Going further
+
+```bash
+make reproduce    # regenerate EVERY published number from the fixed seed
+make verify-all   # every check a judge could run, in one command
+make test         # unit, property and integrity tests
+```
+
+---
+
 ## The thesis in one paragraph
 
 Two evidence sources could catch a launderer and each is useless alone. The blockchain
@@ -32,17 +78,6 @@ Synthetic captures place hosts in reserved address space (RFC 2544 / RFC 6598) t
 real GeoIP database has entries for, so `data/geo/asn-blocks.csv` supplies ASN type and
 timezone for those ranges. Both sources are consulted and the receipt records which
 answered.
-
-## Quick start
-
-```bash
-make setup        # once, with network: venv + deps + UI build
-make reproduce    # generate → leak-test → train → score, all from a fixed seed
-make serve        # http://127.0.0.1:8000
-```
-
-Then unplug the network cable. Nothing here makes an outbound request — `make
-offline-check` fails the build if any application file references a remote host.
 
 ---
 
