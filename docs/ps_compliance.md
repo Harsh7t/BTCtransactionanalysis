@@ -3,6 +3,13 @@
 One row per requirement, quoting the PS's own wording, with the command that verifies it.
 Run `make verify-all` to execute the machine-checkable subset in one pass.
 
+> **PROFILE NOTE.** This matrix quotes the **bulk** profile except where stated, but some
+> figures elsewhere come from **demo** and the two do not agree — e.g. 214 behavioural
+> archetypes (demo) vs 749 (bulk), and attribution top-1 0.9133 (demo, in
+> `attribution_method.md`) vs 0.9321 (bulk, in `artifacts/bulk/manifest.json`). Neither is
+> wrong; they are different runs. Say which profile a number came from whenever it is
+> quoted, and prefer bulk — it is the realistic base rate.
+
 ## Objective
 
 | # | PS wording | Implemented in | Verified by | Status |

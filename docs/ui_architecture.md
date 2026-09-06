@@ -508,6 +508,20 @@ Not verified: **no screenshot was captured.** The browser pane was hidden for th
 whole session, so every screenshot returned black and `document.visibilityState`
 stayed `hidden`. Everything above is geometry and computed style, not pixels.
 
-*Current at `3ef619f`. The UI was rebuilt across commits `c8fcbec … 3ef619f`;
-`git log --oneline c8fcbec~1..` is the narrative, and each message states what
-was measured.*
+## 10 · Where this stands
+
+The interface was rebuilt across `c8fcbec … 3ef619f`, then this document's §3b
+(frames, spacing, type) and the landing explainer landed in `1b7b302`.
+`git log --oneline c8fcbec~1..` is the narrative and every message states what
+was measured.
+
+Open, and deliberately not done:
+
+- **Explanation faithfulness is unmeasured** — §9.
+- **`ui/dist/` is committed** so a clone can `make serve` without a build step.
+  Rebuild it with `make ui` and commit the result; do not re-add the ignore rule.
+- The generator's `src_ip` is not reproducible across runs — a backend defect,
+  recorded in `CLAUDE.md`, but it moves the attribution figures this interface
+  displays, so a UI session should not be surprised by them shifting.
+
+*Current at `1b7b302`.*
