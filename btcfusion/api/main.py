@@ -237,20 +237,39 @@ def graph(entity: str, hops: int = 2, run_id: str | None = None):
     s = store()
     try:
         rid = run_id or (s.latest_run() or {}).get("run_id")
-        rows = s.q("SELECT src, dst, value, n_tx FROM entity_edges WHERE run_id = ?", [rid])
+        # Timestamps are what the link view's time scrubber replays. A database
+        # written before the entity_edges migration has neither column, and a
+        # run recorded before it has them as NULL - either way the endpoint
+        # degrades to an untimed graph and says so rather than failing.
+        try:
+            rows = s.q("SELECT src, dst, value, n_tx, "
+                       "epoch(first_ts)::BIGINT AS first_ts, "
+                       "epoch(last_ts)::BIGINT AS last_ts "
+                       "FROM entity_edges WHERE run_id = ?", [rid])
+        except Exception:                                   # noqa: BLE001
+            rows = s.q("SELECT src, dst, value, n_tx FROM entity_edges "
+                       "WHERE run_id = ?", [rid])
         if not rows:
             return {"nodes": [], "edges": [], "meta": {"nodes_shown": 0, "hops": 0}}
         edges = pl.DataFrame(rows)
         cfg = load_cfg("detect.yaml")["graph"]
         nodes, sub, meta = khop_subgraph(edges, entity, hops=hops,
                                          node_cap=int(cfg["node_cap"]))
-        alerted = {r["entity"] for r in s.q(
-            "SELECT entity FROM alerts WHERE run_id = ?", [rid])}
+        # Score, not just membership: the graph paints risk as a continuous
+        # channel, so a 0.51 neighbour does not look like a 0.98 one.
+        alerted = {r["entity"]: float(r["score"] or 0.0) for r in s.q(
+            "SELECT entity, score FROM alerts WHERE run_id = ?", [rid])}
+        # Colour scale bounds come from the whole run, not this subgraph. A hue
+        # normalised per case file would mean a different thing on every screen.
+        _sc = sorted(alerted.values())
+        meta["score_lo"] = _sc[0] if _sc else 0.0
+        meta["score_hi"] = _sc[-1] if _sc else 1.0
         meta["total_nodes_in_run"] = int(
             (s.q("SELECT count(*) AS n FROM alerts WHERE run_id = ?", [rid]) or
              [{"n": 0}])[0]["n"])
         return {
-            "nodes": [{"id": n, "subject": n == entity, "alerted": n in alerted}
+            "nodes": [{"id": n, "subject": n == entity, "alerted": n in alerted,
+                       "score": alerted.get(n, 0.0)}
                       for n in nodes],
             "edges": sub.to_dicts(),
             "meta": meta,

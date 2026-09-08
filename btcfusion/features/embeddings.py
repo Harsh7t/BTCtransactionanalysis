@@ -9,6 +9,16 @@ WALK GENERATION is vectorised over all walkers simultaneously against a CSR
 adjacency. igraph's per-node random_walk would mean ~500k Python calls; stepping
 every walker together is two array lookups per step and runs in seconds.
 
+EXPLICIT NEIGHBOUR AGGREGATION WAS TRIED AND REJECTED. Two layers of mean
+aggregation over the payment graph - the message passing a GNN performs, written
+in closed form as (A/deg) @ F applied twice, so it needs no torch and keeps SHAP
+exact - was built, measured on the demo profile and removed. It made the model
+WORSE: raw PR-AUC on the test fold 0.5786 without it, 0.5586 with one hop, 0.5703
+with two. The walks below already encode structural role, and re-supplying it as
+neighbourhood means adds thirty-two correlated columns and no information. That
+measurement is only trustworthy because training is reproducible run to run; the
+same comparison made earlier moved less than the run-to-run noise did.
+
 We use p = q = 1, which is the unbiased case of Node2Vec (equivalently DeepWalk).
 Second-order biased walks need the previous node at every step and roughly triple
 the cost; on a payment graph, where we care about role similarity rather than

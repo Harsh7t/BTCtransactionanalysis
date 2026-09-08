@@ -70,6 +70,35 @@ class SupervisedDetector:
             self.model.fit(X, y)
         return self
 
+    def fit_weighted(self, X: np.ndarray, y: np.ndarray, w: np.ndarray,
+                     feature_names: list[str],
+                     n_estimators: int = 300) -> "SupervisedDetector":
+        """Same model, per-example weights instead of class weights.
+
+        Used by the PU learner, where an unlabelled example enters as both
+        classes with weights that sum to one. Class weighting is meaningless
+        there - every row already carries its own - so it is switched off rather
+        than compounded on top.
+        """
+        self.feature_names = list(feature_names)
+        if self.backend == "lightgbm":
+            import lightgbm as lgb
+            self.model = lgb.LGBMClassifier(
+                n_estimators=n_estimators, num_leaves=63, learning_rate=0.06,
+                min_child_samples=30, subsample=0.85, subsample_freq=1,
+                colsample_bytree=0.8, reg_lambda=1.0,
+                random_state=self.seed, n_jobs=-1, verbose=-1)
+            self.model.fit(X, y, sample_weight=w)
+        else:
+            from sklearn.ensemble import HistGradientBoostingClassifier
+            self.model = HistGradientBoostingClassifier(
+                max_iter=n_estimators, max_leaf_nodes=63, learning_rate=0.06,
+                min_samples_leaf=30, l2_regularization=1.0,
+                random_state=self.seed,
+                early_stopping=True, validation_fraction=0.15, n_iter_no_change=20)
+            self.model.fit(X, y, sample_weight=w)
+        return self
+
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
         p = self.model.predict_proba(X)
         return p[:, 1] if p.ndim == 2 else p

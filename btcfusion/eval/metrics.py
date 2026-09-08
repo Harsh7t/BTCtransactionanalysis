@@ -44,6 +44,64 @@ def precision_at_k(y: np.ndarray, s: np.ndarray, k: int) -> float:
     return float(y[top].mean())
 
 
+def _surrogate(order: np.ndarray) -> np.ndarray:
+    """Turn a permutation into a descending score, so rank metrics apply to it."""
+    out = np.empty(len(order), dtype=np.float64)
+    out[order] = np.arange(len(order), 0, -1)
+    return out
+
+
+def queue_order(confidence: np.ndarray, value_out: np.ndarray, raw: np.ndarray,
+                mode: str = "band") -> np.ndarray:
+    """The order the analyst is actually shown.
+
+    `band` is what pipeline.py shipped: the calibrated probability rounded to two
+    decimals, ties broken by value moved, then by raw score. The reasoning was
+    that two entities at 0.93 are not distinguishable, so the bigger money is the
+    better lead.
+
+    `score` ranks by the raw fused score at full resolution and uses value only
+    for an exact tie - which is what detect/fuse.py says the design is.
+
+    Both are computed on every fold, because the band-vs-score choice is a claim
+    about whether the calibrator's discarded resolution carries signal, and that
+    is a measurement, not a preference.
+    """
+    if mode == "score":
+        return _surrogate(np.lexsort((-value_out, -raw)))
+    return _surrogate(np.lexsort((-raw, -value_out, -np.round(confidence, 2))))
+
+
+def _rank_block(y: np.ndarray, s: np.ndarray) -> dict:
+    return {
+        "pr_auc": round(pr_auc(y, s), 4),
+        "precision_at_10": round(precision_at_k(y, s, 10), 4),
+        "precision_at_25": round(precision_at_k(y, s, 25), 4),
+        "precision_at_50": round(precision_at_k(y, s, 50), 4),
+    }
+
+
+def evaluate_queue(y: np.ndarray, confidence: np.ndarray, value_out: np.ndarray,
+                   raw: np.ndarray) -> dict:
+    """Rank quality of the orderings an analyst could be shown, side by side.
+
+    Every published ranking number scored the calibrated probability, which is
+    not what the queue sorts by. That made the scorecard a description of an
+    ordering nobody has ever seen.
+    """
+    return {
+        "shipped_band_then_value": _rank_block(
+            y, queue_order(confidence, value_out, raw, "band")),
+        "raw_score_then_value": _rank_block(
+            y, queue_order(confidence, value_out, raw, "score")),
+        "model_calibrated_score": _rank_block(y, confidence),
+        "note": ("Three orderings of the same scores. The first is what "
+                 "pipeline.py ships; the gap between it and the others is the "
+                 "cost of banding confidence to 2dp and letting value moved "
+                 "break the tie."),
+    }
+
+
 def recall_at_precision(y: np.ndarray, s: np.ndarray, target: float = 0.8) -> float:
     """How much illicit activity we catch at an acceptable false-alarm rate."""
     if y.sum() == 0:

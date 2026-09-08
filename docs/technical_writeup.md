@@ -226,6 +226,93 @@ that must never be shown without its control.
 test fold puts its 95% interval at roughly ±0.30, because it is computed over ten items.
 **P@50 is the honest headline.**
 
+### Why the late fold is harder — censoring, not drift
+
+Discrimination falls across the temporally-forward splits. The reflex is to blame the
+base rate, which falls with it, but ROC-AUC is prevalence-independent and cannot be
+moved by the positive rate alone. Something about the late fold is genuinely harder, and
+"the model degrades over time" is only one candidate explanation.
+
+The other is **right-censoring**, and it is structural rather than a modelling failure.
+A capture ends. An entity first seen a week before the end has one week of behaviour in
+it however long it actually operated, so every aggregate — lifespan, burstiness,
+transaction count, IP churn — is computed over a truncated window. A temporally-forward
+split puts exactly those entities in the test fold.
+
+Stratifying the test fold by the observation window each entity actually had separates
+the two explanations, because they predict opposite patterns. Drift predicts a flat
+deficit; censoring predicts recovery as the window grows. The measurement
+(`metrics.json → results.test.censoring`, demo profile):
+
+| observation window | n | illicit | ROC-AUC |
+|---|---|---|---|
+| under 7.4 days | 3,521 | 45 | **0.761** |
+| 7.4 – 13.3 days | 3,520 | 88 | 0.865 |
+| 13.3 – 18.5 days | 3,521 | 137 | 0.911 |
+| over 18.5 days | 3,521 | 191 | **0.938** |
+
+Monotone in the window. It is censoring. Entities that sent no transactions at all score
+at **0.497** — chance — which is the same finding at its limit: almost every feature is
+sender-side, so an entity we only ever saw receive is not scoreable by this model and
+should be read as unranked rather than as cleared.
+
+The same stratification on the **bulk** profile — the realistic 0.39% base rate, and the
+one to quote — is steeper still: ROC-AUC runs **0.559 → 0.664 → 0.727 → 0.767** across the
+same quartiles. The diagnosis replicates.
+
+The *correction* does not replicate as cleanly, and it is reported as measured rather than
+as hoped. Five features normalise the aggregates by the window that was actually available
+— coverage of the window, transactions and value per available day, a right-censored flag,
+and the span as a fraction of the capture — isolated as their own ablation row. On demo
+they are worth **+0.042 PR-AUC** (0.432 → 0.475, an 8.5% relative gain). On bulk they are
+**−0.004** (0.277 → 0.273): a wash. They are kept because the diagnosis they come from is
+robust across both profiles and because they help most on the thin entities that matter
+operationally, but anyone quoting the demo gain alone would be overclaiming.
+
+The stratified table above is reported rather than averaged away,
+because an operator deciding whether to act on a lead needs to know that a three-day-old
+entity is scored with materially less confidence than a three-week-old one.
+
+What is deliberately **not** a feature is the raw window length. It is monotone in
+first-seen time, and this generator front-loads campaigns, so a model handed calendar
+position would learn "late means licit" — an artefact of the dataset that would not
+survive contact with a real one. Every censoring feature is a rate or a ratio that uses
+the window only to normalise something else. `make leak-test` is the check, and it
+passes.
+
+### What the ranking metrics measure
+
+Every ranking number in this document scores **the ordering an analyst is actually
+shown**, which is not the same as scoring the model's probability. The queue ranks on the
+raw fused score at full resolution and uses value moved only to break an exact tie; the
+calibrated probability gates the queue and is displayed, but does not order it.
+
+This distinction was not free. The system previously banded the calibrated probability to
+two decimals and ordered by value moved *inside* each band, on the reasoning that two
+entities at 0.93 are indistinguishable so the bigger money is the better lead. Measured on
+the demo test fold, that reasoning is wrong: the calibrator's discarded resolution carries
+real signal, and the banded ordering scored precision@25 of 0.88 and @50 of 0.92 against
+1.00 and 1.00 for the raw score. Twelve points of precision at the top of the queue, for
+nothing. `metrics.json → results.*.queue` now carries all three orderings side by side so
+the choice stays evidenced rather than assumed.
+
+### Two architectures we measured and did not ship
+
+**Graph neural network message passing.** Two layers of mean aggregation over the payment
+graph — written in closed form as `(A/deg) @ F` applied twice, so it needs no torch and
+keeps SHAP exact — made the model worse: test raw PR-AUC 0.5786 without it, 0.5586 with
+one hop, 0.5703 with two. The Node2Vec walks already encode structural role, and
+re-supplying it as neighbourhood means adds thirty-two correlated columns and no
+information. Removed. This is consistent with Weber et al. (2019), who found tree
+ensembles outperformed a GCN on Elliptic.
+
+**Positive-Unlabelled learning on Elliptic's discarded 77%.** See §6 Elliptic below.
+
+Both are recorded because a negative result that cost a day is worth more than a
+plausible architecture nobody checked — and because both are only trustworthy at all
+because training became reproducible first. The same two comparisons run earlier moved
+less than the run-to-run noise did.
+
 ### Generalisation to typologies never trained on
 
 `dormancy_burst` and `cross_asn_structuring` are held out entirely — not one example in
@@ -313,6 +400,46 @@ chain-side detector alone. It cannot touch the network⇄chain correlation this 
 built around. That division is the dual-track strategy in
 [`docs/external_validation.md`](external_validation.md), stated up front rather than
 discovered by a reviewer.
+
+### Using the 77% of Elliptic that everyone discards
+
+Elliptic labels 4,545 illicit and 42,019 licit transactions and leaves **157,205
+unknown**. Our validation drops them, as does most published work on the set, because the
+alternative — calling them licit — would silently mislabel a large illicit population.
+That is 77% of a real, expensive, hand-collected dataset thrown away for want of a method.
+
+Positive-Unlabelled learning is the third option. Under the SCAR assumption (labelled
+positives are Selected Completely At Random from all positives), Elkan and Noto (KDD 2008)
+show a classifier separating *labelled* from *unlabelled* is a constant multiple of the
+true posterior, with the constant `c = P(labelled | illicit)` estimable on held-out
+positives. Weighting each unlabelled example by its estimated positivity then lets those
+106,371 training rows move the decision boundary instead of sitting outside the problem.
+
+Both models scored on the same 16,670 held-out labelled transactions from the same later
+time steps:
+
+| | drop the unknowns | Positive-Unlabelled |
+|---|---|---|
+| PR-AUC | **0.8009** | 0.7710 |
+| ROC-AUC | 0.9412 | **0.9493** |
+| best F1 | **0.8259** | 0.7059 |
+
+**It does not help.** PU wins marginally on ROC-AUC and loses on every metric that weights
+the top of the ranking, which is the part an analyst works. The estimated `c = 0.9157`
+explains why: the estimator concludes roughly 92% of illicit transactions are *already
+labelled*, so the unknown pool is close to all-licit. If that is true there is almost
+nothing to recover, and 106,371 softly-weighted rows buy variance instead of signal.
+
+The caveat cuts both ways. SCAR is an assumption, and Elliptic's illicit labels came from
+investigations, which do not sample uniformly — so `c` is an estimate under a condition
+the dataset probably violates. That is precisely why it is read as *evidence about the
+dataset* rather than as a constant of nature, and why the result is reported beside the
+baseline rather than instead of it.
+
+The value here is not a better number. It is that dropping the unknowns — the convention
+every paper on this dataset follows — is now a decision with a measurement behind it. The
+machinery is validated independently in `tests/test_external.py`, which hides a known
+fraction of positives in the unlabelled pool and checks that `c` is recovered.
 
 ### Real labelled data at the ACTOR level — Elliptic++ (§16.4)
 

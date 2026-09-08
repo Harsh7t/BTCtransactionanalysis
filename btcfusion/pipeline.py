@@ -248,9 +248,18 @@ def run_pipeline(path: Path, *, truth_dir: Path | None = None,
     value_out = np.zeros(n, dtype=np.float64)
     if "total_out" in prep.fm.columns:
         value_out = prep.fm.get_column("total_out").to_numpy().astype(np.float64)
-    # Primary key: calibrated confidence, rounded to a band so ties are explicit.
-    # Secondary key: value moved. Tertiary: raw score, to break exact ties.
-    rank_key = np.lexsort((-raw, -value_out, -np.round(confidence, 2)))
+    # Primary key: the raw fused score, at full resolution. Secondary: value
+    # moved, which now only separates an exact tie.
+    #
+    # This block used to band the confidence to 2dp and let value moved order
+    # everything inside a band, on the reasoning that two entities at 0.93 are
+    # indistinguishable so the bigger money is the better lead. MEASURED, and it
+    # is false: the calibrator's discarded resolution carries real signal. On the
+    # demo test fold the banded ordering scored precision@25 0.88 and @50 0.92
+    # against 1.00 and 1.00 for the raw score - twelve points of precision at the
+    # top of the queue, paid for nothing. metrics.json -> results.*.queue keeps
+    # all three orderings side by side so the choice stays evidenced.
+    rank_key = np.lexsort((-value_out, -raw))
     order = rank_key
     flagged = [int(i) for i in order if confidence[i] >= threshold]
 
@@ -315,8 +324,11 @@ def run_pipeline(path: Path, *, truth_dir: Path | None = None,
     adjust = np.array([FEEDBACK_ADJUST.get(feedback.get(prep.nodes[i], ""), 0.0)
                        for i in range(n)], dtype=np.float32)
 
-    keep.sort(key=lambda i: (-(round(float(confidence[i]), 2) + float(adjust[i])),
-                             -float(value_out[i]), -float(raw[i])))
+    # Same key as the pool ordering above, with the analyst's adjustment applied
+    # to the raw score it ranks by. Both live on 0..1, so the adjustment keeps the
+    # magnitude it was chosen with.
+    keep.sort(key=lambda i: (-(float(raw[i]) + float(adjust[i])),
+                             -float(value_out[i])))
     # NOVELTY RESERVE. The classifier ranks what it was trained on; by
     # construction it cannot rank a laundering pattern nobody labelled. Blending
     # the novelty score into the ranking was measured and rejected - it halved
@@ -462,8 +474,11 @@ def run_pipeline(path: Path, *, truth_dir: Path | None = None,
     # Edges touching alerted entities, for the link-analysis view.
     sub_edges = prep.edges.filter(pl.col("src").is_in(top_entities)
                                   | pl.col("dst").is_in(top_entities))
+    # first_ts/last_ts come straight from entity_edges() and drive the link
+    # view's time scrubber. insert_frame intersects with the table's real
+    # columns, so this stays safe against a database predating the migration.
     store.insert_frame("entity_edges", sub_edges.select(
-        ["src", "dst", "value", "n_tx"]).head(60000), run_id)
+        ["src", "dst", "value", "n_tx", "first_ts", "last_ts"]).head(60000), run_id)
 
     # Calibrated confidence per alerted entity, used by the transaction layer
     # both as a feature and as the fallback score.

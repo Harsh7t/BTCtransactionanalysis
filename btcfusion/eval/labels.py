@@ -26,9 +26,21 @@ def map_to_truth(addr_map: pl.DataFrame, truth_addresses: pl.DataFrame,
 
     counts = j.group_by(["entity_id", "eid"]).len()
     totals = counts.group_by("entity_id").agg(pl.col("len").sum().alias("total"))
-    best = (counts.sort("len", descending=True)
-            .group_by("entity_id").agg([pl.col("eid").first().alias("true_eid"),
-                                        pl.col("len").first().alias("best_n")])
+    # DETERMINISTIC MAJORITY. A cluster whose addresses split evenly between two
+    # true entities has no majority, and the original code let polars decide -
+    # `sort` gives no tie guarantee and `group_by` no row order, both of which are
+    # multi-threaded. Measured: two identical training runs disagreed on the
+    # labels of ~9 entities, so `n_positive` on the train fold moved 3738 -> 3729
+    # and every metric computed against those labels moved with it. That is a
+    # non-reproducible ground truth, which is worse than a non-reproducible model.
+    #
+    # Ties now break on the true entity id, ascending. The choice is arbitrary;
+    # being the SAME arbitrary choice every run is the point. A genuine two-way
+    # tie also scores purity <= 0.5, so `impure_clusters` already counts them.
+    best = (counts.sort(["len", "eid"], descending=[True, False])
+            .group_by("entity_id", maintain_order=True)
+            .agg([pl.col("eid").first().alias("true_eid"),
+                  pl.col("len").first().alias("best_n")])
             .join(totals, on="entity_id", how="left"))
     best = best.with_columns((pl.col("best_n") / pl.col("total")).alias("purity"))
 

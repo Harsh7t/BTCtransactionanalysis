@@ -10,7 +10,7 @@
       /* Runs before first paint so the theme is correct on the first frame.
          Kept inline and tiny on purpose: a deferred module would be too late. */
       try {
-        var t = localStorage.getItem('btcfusion.theme');
+        var t = localStorage.getItem('btcfusion.theme') || 'light';
         if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
       } catch (e) { /* storage blocked - fall through to the system preference */ }
     </script>

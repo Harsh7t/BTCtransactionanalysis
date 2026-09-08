@@ -4,7 +4,7 @@ What the interface is, how it is put together, and the traps that cost real time
 to find. Everything here is current as of the commits listed at the bottom.
 
 Backend, model and evaluation live in the other docs; this file does not repeat
-them. See `docs/technical_writeup.md` and `CLAUDE.md`.
+them. See `docs/technical_writeup.md` and `ENGINEERING.md`.
 
 ---
 
@@ -415,8 +415,6 @@ carries a `setTimeout` that force-sets the final value.
 ```bash
 cd ui && npx tsc -b --force      # the REAL typecheck
 cd ui && npm run build           # runs tsc -b, then bundles
-node ~/.claude/skills/impeccable/scripts/detect.mjs --json \
-  ui/src/App.tsx ui/src/ui.tsx ui/src/ThemeToggle.tsx ui/src/components
 make offline-check               # no URLs in application code
 ```
 
@@ -521,7 +519,7 @@ Open, and deliberately not done:
 - **`ui/dist/` is committed** so a clone can `make serve` without a build step.
   Rebuild it with `make ui` and commit the result; do not re-add the ignore rule.
 - The generator's `src_ip` is not reproducible across runs — a backend defect,
-  recorded in `CLAUDE.md`, but it moves the attribution figures this interface
+  recorded in `ENGINEERING.md`, but it moves the attribution figures this interface
   displays, so a UI session should not be surprised by them shifting.
 
 *Current at `1b7b302`.*

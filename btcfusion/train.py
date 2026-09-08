@@ -21,6 +21,7 @@ import numpy as np
 import polars as pl
 
 from .detect.fuse import Calibrator, fuse_scores
+from .eval.diagnostics import censoring_report
 from .detect.novelty import NoveltyDetector
 from .detect.supervised import SupervisedDetector
 from .detect.typologies import evidence_strength
@@ -59,6 +60,8 @@ def train(capture: Path, truth_dir: Path, artifacts: Path,
                .rename({"receiver_entities": "entity"}).drop_nulls("entity"))
     first_ts = (pl.concat([sent_ts, recv_ts])
                 .group_by("entity").agg(pl.col("timestamp").min().alias("first_ts")))
+    last_ts = (pl.concat([sent_ts, recv_ts])
+               .group_by("entity").agg(pl.col("timestamp").max().alias("last_ts")))
 
     splits = make_splits(fm, labels, first_ts,
                          cfg["splits"]["holdout_typologies"],
@@ -131,13 +134,50 @@ def train(capture: Path, truth_dir: Path, artifacts: Path,
     te_cal = cal.transform(raw_scores(te))
     reliability = M.reliability_curve(y[te], te_cal)
 
+    # ---- what the analyst is actually shown -------------------------------
+    # Every ranking number above scores the calibrated probability. The queue does
+    # not rank by it (pipeline.py: confidence banded to 2dp, then value moved,
+    # then raw), so those numbers describe an ordering nobody has seen. Score the
+    # real permutation too, on every fold, and let the two sit side by side.
+    value_out = (fm.get_column("total_out").to_numpy().astype(np.float64)
+                 if "total_out" in fm.columns else np.zeros(len(prep.nodes)))
+    for name, idx in (("train", tr), ("calib", ca), ("test", te)):
+        r_raw = raw_scores(idx)
+        results[name]["queue"] = M.evaluate_queue(
+            y[idx], cal.transform(r_raw), value_out[idx], r_raw)
+        # And the model's own score without the calibration step, so the cost of
+        # calibration to ranking is visible rather than folded into one number.
+        results[name]["raw_pr_auc"] = round(M.pr_auc(y[idx], r_raw), 4)
+
+    # ---- is the late-fold deficit censoring, or drift? --------------------
+    # The splits run forward in time and discrimination falls across them. Blaming
+    # the base rate does not work: ROC-AUC is prevalence-independent. Stratify the
+    # test fold by how much observation window each entity actually had, so the
+    # two explanations can be told apart instead of argued about.
+    _ts = (fm.select(["entity"])
+           .join(first_ts, on="entity", how="left")
+           .join(last_ts, on="entity", how="left"))
+    _first = _ts.get_column("first_ts").dt.epoch("s").fill_null(0).to_numpy().astype(float)
+    _last = _ts.get_column("last_ts").dt.epoch("s").fill_null(0).to_numpy().astype(float)
+    _ntx = (fm.get_column("n_tx_sent").fill_null(0).to_numpy().astype(float)
+            if "n_tx_sent" in fm.columns else np.zeros(len(prep.nodes)))
+    _capture_end = float(_last.max())
+    results["test"]["censoring"] = censoring_report(
+        y[te], cal.transform(raw_scores(te)), _first[te], _last[te], _ntx[te],
+        _capture_end)
+
     # ---- ablation: where does the lift actually come from? ---------------
     # The shipped configuration is passed in as the final row. Without it the
     # table ends on the raw classifier score while the scorecard reports the
     # CALIBRATED one - two different numbers for "the model", which is exactly the
     # inconsistency a reviewer pounces on.
+    # The final row must be what the analyst is actually shown. That is the queue
+    # ordering - raw score at full resolution, value moved breaking exact ties -
+    # not the calibrated probability, which is used to GATE and to DISPLAY but no
+    # longer to rank.
+    _shipped = M.queue_order(te_cal, value_out[te], raw_scores(te), mode="score")
     ablation = _ablation(X, y, tr, te, prep.feature_names, cfg, seed, ev,
-                         shipped=te_cal)
+                         shipped=_shipped, calibrated=te_cal)
 
     # Swept every run, on every profile. This is what caught the original weights:
     # they looked like a reasonable trade at the demo profile's 3.3% positive rate
@@ -248,7 +288,8 @@ def train(capture: Path, truth_dir: Path, artifacts: Path,
     return metrics
 
 
-def _ablation(X, y, tr, te, names, cfg, seed, ev, shipped=None) -> list[dict]:
+def _ablation(X, y, tr, te, names, cfg, seed, ev, shipped=None,
+              calibrated=None) -> list[dict]:
     """Rules -> +unsupervised -> +GBDT -> +embeddings. The slide that shows the
     model is doing work the rules cannot."""
     n_eng = len([n for n in names if not n.startswith("emb_")])
@@ -266,21 +307,44 @@ def _ablation(X, y, tr, te, names, cfg, seed, ev, shipped=None) -> list[dict]:
     out.append({"stage": "+ GBDT on engineered features",
                 **_score(y[te], s1.predict_proba(X[te][:, :n_eng]))})
 
+    # Engineered features WITHOUT the censoring corrections, so the row below is
+    # attributable. These exist because the temporally-forward split truncates
+    # late entities; see eval/diagnostics.py and features/extract.py.
+    CENSORING = {"window_coverage", "tx_per_available_day", "value_per_available_day",
+                 "right_censored", "span_fraction_of_capture"}
+    eng = [i for i in range(n_eng) if names[i] not in CENSORING]
+    if len(eng) < n_eng:
+        s0 = SupervisedDetector(seed=seed, backend=cfg["supervised"]["backend"]).fit(
+            X[tr][:, eng], y[tr], [names[i] for i in eng], n_estimators=200)
+        out.insert(2, {"stage": "+ GBDT, before censoring correction",
+                       **_score(y[te], s0.predict_proba(X[te][:, eng])),
+                       "note": ("Same model without the five features that normalise "
+                                "an entity's aggregates by the observation window it "
+                                "actually had. The gap to the next row is what "
+                                "correcting for a truncated capture is worth.")})
+
     s2 = SupervisedDetector(seed=seed, backend=cfg["supervised"]["backend"]).fit(
         X[tr], y[tr], names, n_estimators=200)
     out.append({"stage": "+ Node2Vec embeddings",
                 **_score(y[te], s2.predict_proba(X[te]))})
 
-    if shipped is not None:
-        out.append({"stage": "+ isotonic calibration (shipped)",
-                    **_score(y[te], shipped),
+    if calibrated is not None:
+        out.append({"stage": "+ isotonic calibration (display + gate)",
+                    **_score(y[te], calibrated),
                     "note": ("Ranking is the classifier's job alone - novelty and evidence "
                              "carry zero weight, see config/detect.yaml. This row therefore "
-                             "measures the cost of CALIBRATION only: isotonic regression is "
-                             "monotone in principle but the small raw-score blend used to "
-                             "break ties inside a saturated bin can reorder neighbours. "
-                             "Coverage of unlabelled typologies is bought by reserved "
-                             "queue slots, not by blending.")})
+                             "measures the cost of CALIBRATION to RANKING: isotonic "
+                             "regression is monotone in principle, but its step function "
+                             "collapses distinct scores into one bin. That cost is why the "
+                             "queue ranks on the raw score and uses the calibrated "
+                             "probability only to gate and to display.")})
+    if shipped is not None:
+        out.append({"stage": "= the queue the analyst sees (shipped)",
+                    **_score(y[te], shipped),
+                    "note": ("Raw score at full resolution, value moved breaking exact "
+                             "ties, gated at the calibrated threshold. Every other row "
+                             "scores a number; this row scores the ORDERING, which is the "
+                             "thing an analyst actually works down.")})
     return out
 
 

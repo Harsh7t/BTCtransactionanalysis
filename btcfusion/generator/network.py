@@ -21,6 +21,7 @@ real host is ever named in generated data.
 """
 from __future__ import annotations
 
+import zlib
 import ipaddress
 from dataclasses import dataclass
 
@@ -221,7 +222,14 @@ def actor_ip_for(actor: Actor, ts: int, shared: SharedInfrastructure,
     day = ts // 86400
     # Deterministic per-day selection: same entity, same day -> same IP, which is
     # what makes churn observable rather than pure noise.
-    idx = (day * 1103515245 + hash(actor.eid)) % max(1, len(actor.ips))
+    #
+    # crc32, not the built-in hash(). Python randomises string hashing per
+    # process unless PYTHONHASHSEED is pinned, so this line - and only this line -
+    # made generation non-reproducible: two runs at the same --seed produced
+    # byte-identical output in every column except src_ip. src_ip is the network
+    # half of the whole thesis, so `make reproduce` did not reproduce the thing
+    # the attribution figures are computed from.
+    idx = (day * 1103515245 + zlib.crc32(actor.eid.encode())) % max(1, len(actor.ips))
     if actor.asn_type == "residential" and rng.random() < churn_prob:
         idx = (idx + 1) % max(1, len(actor.ips))
     return actor.ips[idx], actor.asn, actor.country, actor.asn_type

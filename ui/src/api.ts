@@ -78,9 +78,11 @@ export type Job = {
 };
 
 export type GraphData = {
-  nodes: { id: string; subject: boolean; alerted: boolean }[];
-  edges: { src: string; dst: string; value: number; n_tx: number }[];
-  meta: { nodes_shown: number; hops: number; capped?: boolean };
+  nodes: { id: string; subject: boolean; alerted: boolean; score: number }[];
+  edges: { src: string; dst: string; value: number; n_tx: number;
+           first_ts?: number | null; last_ts?: number | null }[];
+  meta: { nodes_shown: number; hops: number; capped?: boolean;
+          score_lo: number; score_hi: number };
 };
 
 async function get<T>(url: string): Promise<T> {

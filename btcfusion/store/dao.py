@@ -53,7 +53,8 @@ CREATE TABLE IF NOT EXISTS shap_values (
     contribution DOUBLE, value DOUBLE, direction VARCHAR, meaning VARCHAR
 );
 CREATE TABLE IF NOT EXISTS entity_edges (
-    run_id VARCHAR, src VARCHAR, dst VARCHAR, value BIGINT, n_tx BIGINT
+    run_id VARCHAR, src VARCHAR, dst VARCHAR, value BIGINT, n_tx BIGINT,
+    first_ts TIMESTAMP, last_ts TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS entity_txs (
     run_id VARCHAR, entity VARCHAR, txid VARCHAR, ts TIMESTAMP,
@@ -76,12 +77,28 @@ CREATE TABLE IF NOT EXISTS feedback (
 """
 
 
+# Additive only: adding a column is safe against a populated database, dropping
+# or retyping one is not. Old rows get NULL and the API reports what it has.
+MIGRATIONS = [
+    "ALTER TABLE entity_edges ADD COLUMN IF NOT EXISTS first_ts TIMESTAMP",
+    "ALTER TABLE entity_edges ADD COLUMN IF NOT EXISTS last_ts TIMESTAMP",
+]
+
+
 class Store:
     def __init__(self, path: str | Path):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.con = duckdb.connect(str(self.path))
         self.con.execute(SCHEMA)
+        # `CREATE TABLE IF NOT EXISTS` leaves an existing table alone, so a
+        # database written before a column existed keeps the old shape and every
+        # read of the new column fails. Additive migrations, run every open.
+        for stmt in MIGRATIONS:
+            try:
+                self.con.execute(stmt)
+            except Exception:      # noqa: BLE001 - degrade, never fail (§ ENGINEERING.md)
+                pass
 
     def close(self) -> None:
         self.con.close()

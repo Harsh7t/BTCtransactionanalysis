@@ -24,7 +24,11 @@ export function applyTheme(t: Theme) {
 
 export function ThemeToggle() {
   const [theme, setTheme] = useState<Theme>(() => {
-    try { return (localStorage.getItem(KEY) as Theme) || 'system'; } catch { return 'system'; }
+    // Light, not 'system', when nothing has been chosen. This is presented on
+    // whatever machine is to hand, and following the OS meant a laptop in dark
+    // mode opened the demo dark. The toggle still offers system and dark; only
+    // the first-run default moved.
+    try { return (localStorage.getItem(KEY) as Theme) || 'light'; } catch { return 'light'; }
   });
 
   useEffect(() => {

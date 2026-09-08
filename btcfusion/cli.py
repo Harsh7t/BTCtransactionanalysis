@@ -74,7 +74,14 @@ def cmd_generate(args) -> int:
     print(f"  campaigns       {s['n_campaigns']:,}")
     print(f"  coverage        {s['observation_coverage']}")
     for p in written:
-        print(f"  wrote {p.relative_to(ROOT)}  ({p.stat().st_size / 1e6:.1f} MB)")
+        # relative_to raises when --out was given as a relative path, or points
+        # outside the repo. Generation has already succeeded by this point, so a
+        # cosmetic path failing to shorten must not take the command down with it.
+        try:
+            shown = p.resolve().relative_to(ROOT)
+        except ValueError:
+            shown = p
+        print(f"  wrote {shown}  ({p.stat().st_size / 1e6:.1f} MB)")
     return 0
 
 

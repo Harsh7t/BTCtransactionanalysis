@@ -68,3 +68,36 @@ def test_ablation_refits_without_the_time_index(tmp_path):
     got = validate_elliptic(_fixture(tmp_path), seed=1)
     assert 0.0 <= got["without_time_step"]["pr_auc"] <= 1.0
     assert 0.0 <= got["without_time_step"]["f1"] <= 1.0
+
+
+def test_pu_recovers_a_known_label_frequency():
+    """The Elkan-Noto machinery must estimate c correctly on data where we set it.
+
+    Build a separable two-class problem, then HIDE a known fraction of the
+    positives in the unlabelled pool. c is the fraction of positives that stayed
+    labelled, so the estimator has a right answer to be checked against - which is
+    the only way to know the correction means anything before pointing it at
+    Elliptic, where the true c is unknowable.
+    """
+    import numpy as np
+
+    from btcfusion.detect.pu import PUDetector
+
+    rng = np.random.default_rng(7)
+    n = 3000
+    X_pos = rng.normal(loc=2.0, size=(n, 6))
+    X_neg = rng.normal(loc=-2.0, size=(n, 6))
+
+    true_c = 0.6
+    n_lab = int(n * true_c)
+    labelled_pos = X_pos[:n_lab]
+    unlabelled = np.vstack([X_pos[n_lab:], X_neg])   # hidden positives + negatives
+
+    pu = PUDetector(seed=1, backend="sklearn_histgb").fit(
+        labelled_pos, unlabelled, [f"f{i}" for i in range(6)], n_estimators=60)
+
+    assert abs(pu.c - true_c) < 0.15, f"estimated c={pu.c:.3f}, expected ~{true_c}"
+    # And the corrected model must still separate the classes it was never told about.
+    s_pos = pu.predict_proba(X_pos[n_lab:]).mean()
+    s_neg = pu.predict_proba(X_neg).mean()
+    assert s_pos > s_neg, "PU model does not rank hidden positives above negatives"

@@ -9,6 +9,19 @@ Run `make verify-all` to execute the machine-checkable subset in one pass.
 > `attribution_method.md`) vs 0.9321 (bulk, in `artifacts/bulk/manifest.json`). Neither is
 > wrong; they are different runs. Say which profile a number came from whenever it is
 > quoted, and prefer bulk — it is the realistic base rate.
+>
+> **REPRODUCIBILITY NOTE.** Every figure below is now regenerable: `make reproduce` yields
+> byte-identical data and **zero** differing metric keys between runs. That was not true
+> before — three independent sources of run-to-run drift had to be removed, one of which
+> moved the ground-truth labels themselves. See ENGINEERING.md and `tests/test_determinism.py`.
+> Any comparison of two numbers in this repo is only meaningful because of that.
+>
+> **RANKING NOTE.** Ranking metrics score the ordering the analyst is actually shown —
+> raw score at full resolution, value moved breaking exact ties — not the calibrated
+> probability, which gates and displays but no longer ranks. `metrics.json →
+> results.*.queue` carries all three orderings side by side. Banding confidence to two
+> decimals and sorting by value inside a band, which is what shipped previously, cost 12
+> points of precision@25 on the demo test fold.
 
 ## Objective
 
@@ -44,6 +57,7 @@ Run `make verify-all` to execute the machine-checkable subset in one pass.
 |---|---|---|---|---|
 | 13 | "synthetic dataset modelled on real Bitcoin P2P/transaction fields" | `generator/` (1,680 lines) | `make generate`; parameters documented in `docs/generator_parameters.md` | ✅ |
 | 13b | *beyond the PS* — the synthetic set is ours, so the chain-side detector is also validated on **real** labelled Bitcoin data | `eval/external.py` | `make validate-external` → illicit **F1 0.7595**, PR-AUC 0.8009 on 46,564 Elliptic transactions (train steps 1-34, test 35-49) vs Weber et al.'s published 0.79. Chain-side only — Elliptic has no IP layer | ✅ |
+| 13d | *beyond the PS* — and the **77% of Elliptic that every published result discards** is used rather than dropped, via Positive-Unlabelled learning | `detect/pu.py`, `eval/external.py:pu_comparison` | `make validate-external` → PU ROC-AUC **0.9493** vs 0.9412 for the drop-the-unknowns baseline, but PR-AUC **0.7710 vs 0.8009** and best-F1 **0.7059 vs 0.8259** on the same 16,670 held-out labelled transactions. Estimated **c = 0.9157** — the SCAR estimator concludes ~92% of illicit transactions are already labelled, so the unknown pool is close to all-licit and 106,371 softly-weighted rows buy variance rather than signal. **Dropping the unknowns is the right call, and it is now a measurement rather than a convention.** | ✅ measured, negative |
 | 13c | *beyond the PS* — and at the **actor level we actually ship**, plus the clustering heuristic itself | `eval/elliptic_pp.py` | `make validate-elliptic-pp` → address PR-AUC **0.3745** at a 5.56% base rate on 96,023 Elliptic++ addresses (address-disjoint split); co-spend clusters share a label **99.79%** vs an 82.09% shuffle control on real Bitcoin | ✅ |
 | 14 | minimum fields incl. `geo_country/asn` | `generator/emit.py:FIELDS` | 14/14 present | ✅ |
 | 15 | "integrate open source downloadable Geo IP database" | `ingest/enrich.py` | **DB-IP Lite ASN, CC BY 4.0**, bundled at `data/geo/dbip-asn-lite.mmdb`; receipt reads `mmdb:dbip-asn-lite.mmdb+table:asn-blocks.csv` | ✅ |

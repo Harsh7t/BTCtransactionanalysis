@@ -1,5 +1,32 @@
 {
   "available": true,
+  "positive_unlabelled": {
+    "available": true,
+    "n_train_labelled": 29894,
+    "n_train_unknown_used_by_pu": 106371,
+    "n_test_labelled": 16670,
+    "fraction_of_dataset_unlabelled": 0.7715,
+    "estimated_c": 0.9157,
+    "drop_unknowns_baseline": {
+      "pr_auc": 0.8009,
+      "roc_auc": 0.9412,
+      "precision_at_50": 1.0,
+      "f1_at_0.5": 0.7595,
+      "best_f1": 0.8259,
+      "best_f1_threshold": 0.89
+    },
+    "positive_unlabelled": {
+      "pr_auc": 0.771,
+      "roc_auc": 0.9493,
+      "precision_at_50": 1.0,
+      "f1_at_0.5": 0.5892,
+      "best_f1": 0.7059,
+      "best_f1_threshold": 0.16
+    },
+    "delta_pr_auc": -0.0299,
+    "finding": "MEASURED: using the 77% does not help on Elliptic. PU wins marginally on ROC-AUC (0.9493 vs 0.9412) and loses on every metric that weights the top of the ranking (PR-AUC 0.7710 vs 0.8009, best-F1 0.7059 vs 0.8259). The estimated c explains why: at c=0.9157 the SCAR estimator concludes roughly 92% of illicit transactions are ALREADY labelled, i.e. the unknown pool is close to all-licit. If that is true there is almost nothing to recover, and 106,371 softly-weighted rows buy variance instead. Dropping the unknowns - which is what the published baseline does - turns out to be the right call on this dataset, and now it is a measurement rather than a convention.",
+    "caveat": "Elkan-Noto assumes labelled positives are Selected Completely At Random. Elliptic's illicit labels came from investigations, which do not sample uniformly, so c is an estimate under an assumption the dataset probably violates. That cuts both ways: it is also the reason c should be read as evidence about the dataset rather than as a constant of nature."
+  },
   "n_nodes": 46564,
   "n_labelled": 46564,
   "positive_rate": 0.0976,

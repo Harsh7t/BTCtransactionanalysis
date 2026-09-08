@@ -76,3 +76,28 @@ follow from that:
 - **Analyst feedback re-ranks presentation only.** Verdicts demote or promote the next
   run's queue; they never retrain the model. Retraining on analyst clicks without a
   controlled evaluation is how a triage tool quietly learns one person's habits.
+
+## Known behaviour: score quality depends on how much of the entity was observed
+
+This model scores an entity from aggregates over whatever the capture contains. A capture
+ends, so an entity first seen shortly before that end is scored from a truncated window,
+and the score is correspondingly weaker. This is measured rather than assumed
+(`artifacts/*/metrics.json → results.test.censoring`, demo profile):
+
+| observation window available | ROC-AUC |
+|---|---|
+| under 7.4 days | 0.761 |
+| 7.4 – 13.3 days | 0.865 |
+| 13.3 – 18.5 days | 0.911 |
+| over 18.5 days | 0.938 |
+
+Five features normalise the aggregates by the available window and recover part of the
+gap, but nothing creates evidence that was never recorded.
+
+**Operational consequence.** A low score on a recently-observed entity is weak evidence of
+innocence, not strong evidence. Entities that never sent a transaction score at **0.497** —
+indistinguishable from chance, because nearly every feature is sender-side — and should be
+read as *unranked*, never as cleared. When quoting a headline figure for this model, quote
+the stratified table, not the mean over a fold that mixes fully-observed and
+barely-observed entities.
+
