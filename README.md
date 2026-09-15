@@ -97,13 +97,11 @@ money graph and the network attribution.
 So **nothing needs training** to see the product, and no dataset download is required for
 the demo. If you only changed UI code, `make ui && make serve` is enough.
 
-> **Reproducing the *published* numbers is a different matter.** Generation is not yet
-> byte-reproducible: `btcfusion/generator/network.py` picks an actor's IP with Python's
-> built-in `hash()` on a string, which is randomised per process, so `src_ip` — and only
-> `src_ip` — changes between runs. Verified: with `PYTHONHASHSEED` pinned, two runs are
-> byte-identical. Everything else (timestamps, TXIDs, addresses, amounts, fees, geo, ASN)
-> already reproduces exactly. Until that is fixed, figures in `docs/` come from one
-> particular realisation, and a fresh `make generate` will move the attribution numbers.
+> **Reproducing the published numbers.** Generation is byte-reproducible from the seed:
+> `make reproduce` regenerates every figure in `docs/`, and `tests/test_determinism.py`
+> checks it across separate processes. (It was not always — actor IP selection once used
+> Python's per-process randomised `hash()`, so `src_ip` differed between runs. It uses
+> `zlib.crc32` now.)
 
 Once `make bootstrap` has run, **unplug the network cable.** Nothing here makes an
 outbound request; `make offline-check` fails the build if any application file references

@@ -76,11 +76,14 @@ def counterfactuals(conf: float, base: float, n_obs: int, root_frac: float,
     # Downside: the address turns out to be shared infrastructure.
     if asn_type not in ("vpn", "tor", "cdn"):
         c_vpn = recompute(infra_penalty=DECLARED_PENALTY["vpn"])
-        out.append({
-            "direction": "down",
-            "value": round(c_vpn, 2),
-            "text": f"falls to {c_vpn:.2f} if the announcing IPs resolve to a shared VPN exit",
-        })
+        # A crowded address's combined penalty can already sit below the bare VPN
+        # one, and "falls to" a higher number is a false sentence on a case file.
+        if conf - c_vpn > 0.01:
+            out.append({
+                "direction": "down",
+                "value": round(c_vpn, 2),
+                "text": f"falls to {c_vpn:.2f} if the announcing IPs resolve to a shared VPN exit",
+            })
 
     # Downside: the sightings were re-relays rather than origin announcements.
     if root_frac > 0.05:

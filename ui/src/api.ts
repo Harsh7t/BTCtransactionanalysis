@@ -10,6 +10,10 @@ export type Alert = {
   n_ips: number; top_asn: number; top_asn_type: string; top_country: string;
   attribution_confidence: number; attribution_status: string;
   verdict: string | null; verdict_reason: string | null;
+  // Campaign links. Already stored and already served; the queue simply never
+  // read them, so a lead that belongs to a 35-entity operation looked identical
+  // to one acting alone.
+  n_linked_entities?: number; linked_entities?: string;
   raised_by?: string;
 };
 

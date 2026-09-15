@@ -167,8 +167,8 @@ export function StartScreen({ onStarted, lastRun, onViewLast }: {
           <div className="flex flex-wrap gap-2">
             {[
               { name: 'judge.csv', label: 'judge', note: '16 MB · seconds' },
-              { name: 'capture.csv', label: 'demo', note: '564k rows · 13 s' },
-              { name: 'bulk.csv', label: 'bulk', note: '2.47M rows · 105 s' },
+              { name: 'capture.csv', label: 'demo', note: '564k rows · ~15 s' },
+              { name: 'bulk.csv', label: 'bulk', note: '2.47M rows · ~2 min' },
             ].map((s) => (
               <button key={s.name} disabled={!!busy}
                       onClick={() => runSample(`data/samples/${s.name}`, s.name)}

@@ -14,6 +14,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api, fmt, type Alert, type Receipt, type TxRow } from '../api';
+import { DossierView, FocusView, TableView } from './QueueViews';
 import { Bar, Button, Chip, Counter, Eyebrow, IconFilter, Notice, Panel, Spinner, Stat, Tag } from '../ui';
 
 const TYPOLOGIES = ['peel_chain', 'fan_out_in', 'rapid_layering',
@@ -27,11 +28,7 @@ const mark = (d: ReactNode, w = 14) => (
        strokeWidth="1.5" strokeLinecap="square" aria-hidden>{d}</svg>
 );
 const ArrowRight = mark(<><path d="M2 7h9" /><path d="M8 4l3 3-3 3" /></>);
-const SortNone = mark(<><path d="M4 6l3-3 3 3" /><path d="M4 8l3 3 3-3" /></>, 11);
-const SortUp = mark(<path d="M3.5 9l3.5-4 3.5 4" />, 11);
 const SortDown = mark(<path d="M3.5 5l3.5 4 3.5-4" />, 11);
-const CheckMark = mark(<path d="M2.5 7.5 6 11l5.5-7" />, 12);
-const ChevronRight = mark(<path d="M5.5 3.5 9 7l-3.5 3.5" />, 12);
 
 /** The reduction, stated once, in the order it happens.
  *
@@ -43,6 +40,8 @@ const ChevronRight = mark(<path d="M5.5 3.5 9 7l-3.5 3.5" />, 12);
  * Composed as a line rather than as three cards on purpose. Cards would make it
  * a dashboard header; the arrows make it a claim.
  */
+type SortKey = 'rank' | 'confidence' | 'novelty' | 'total_out' | 'n_ips';
+
 function Funnel({ r, leads }: { r: Receipt; leads: number }) {
   const [open, setOpen] = useState(false);
   const q = r.rows_quarantined ?? 0;
@@ -129,65 +128,6 @@ function Funnel({ r, leads }: { r: Receipt; leads: number }) {
   );
 }
 
-/** What kind of evidence stands behind one lead, as three present/absent marks.
- *
- * The queue's hardest question to answer by eye was "why is this one here?", and
- * the answer was spread across three columns in three different visual
- * languages. These are one encoding, in the layer colours this codebase already
- * uses everywhere else: chain corroboration, a resolved network identity, and
- * the model's own call.
- *
- * The point is what it reveals when you scan the column rather than a row. On
- * this run 49 of 60 leads carry a named typology and exactly 3 carry an IP the
- * engine was willing to name - so the middle mark lights up three times in sixty
- * and the abstention the system is proud of becomes visible instead of implied.
- */
-function Evidence({ a }: { a: Alert }) {
-  const cells: [string, boolean, string][] = [
-    ['--chain', Boolean(a.typologies),
-     a.typologies ? `chain: ${a.typologies.split('|').filter(Boolean).map(fmt.typology).join(', ')}`
-                  : 'chain: no named typology matched'],
-    ['--network', a.attribution_status === 'ok' && Boolean(a.top_asn),
-     a.attribution_status === 'ok' && a.top_asn
-       ? `network: attributed to AS${a.top_asn}`
-       : 'network: every candidate IP was shared infrastructure — suppressed, not guessed'],
-    ['--fusion', true,
-     a.raised_by === 'novelty'
-       ? 'model: raised by the novelty detector, not the classifier'
-       : 'model: ranked by the trained classifier'],
-  ];
-  return (
-    <div className="flex items-center gap-1" role="img"
-         aria-label={cells.map(([, on, t]) => (on ? t : `no ${t}`)).join('. ')}>
-      {cells.map(([layer, on, title]) => (
-        <span key={layer} title={title}
-              className="w-2 h-4 inline-block"
-              style={on
-                ? { background: `var(${layer})` }
-                : { background: 'transparent', boxShadow: 'inset 0 0 0 1px var(--rule)' }} />
-      ))}
-    </div>
-  );
-}
-
-type SortKey = 'rank' | 'confidence' | 'novelty' | 'total_out' | 'n_ips';
-
-/* Column widths are declared here rather than inline because the ratios matter:
-   typology previously took 338px - the widest column in the table - to hold two
-   short tags, which pushed confidence and attribution into the right third and
-   left a long empty gap for the eye to cross. */
-const COLUMNS: { key: string; label: string; align: string; width: string; sort?: SortKey }[] = [
-  { key: 'rank',  label: '#',           align: 'text-right', width: 'w-10',  sort: 'rank' },
-  { key: 'ev',    label: 'evidence',    align: 'text-left',  width: 'w-20' },
-  { key: 'ent',   label: 'entity',      align: 'text-left',  width: 'w-56' },
-  { key: 'typ',   label: 'pattern',     align: 'text-left',  width: 'w-52' },
-  { key: 'attr',  label: 'attribution', align: 'text-left',  width: 'w-44' },
-  { key: 'conf',  label: 'confidence',  align: 'text-right', width: 'w-28', sort: 'confidence' },
-  { key: 'nov',   label: 'novelty',     align: 'text-right', width: 'w-16', sort: 'novelty' },
-  { key: 'val',   label: 'value moved', align: 'text-right', width: 'w-48', sort: 'total_out' },
-  { key: 'act',   label: '',            align: 'text-left',  width: 'w-8' },
-];
-
 export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
@@ -203,11 +143,26 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
   // null until the user actually navigates. Starting at 0 painted row one as
   // selected the moment the page loaded, which claims a choice nobody made and
   // draws the eye to rank 1 as if it were special beyond simply being first.
-  const [cursor, setCursor] = useState<number | null>(null);
+  // Three presentations of the same queue, switchable against real data.
+  // Persisted so flipping between them survives a reload while they are judged.
+  const [view, setView] = useState<'table' | 'dossier' | 'focus'>(() => {
+    try { return (localStorage.getItem('btcfusion.queueview') as never) || 'table'; }
+    catch { return 'table'; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('btcfusion.queueview', view); } catch { /* private mode */ }
+  }, [view]);
+  const [focusIdx, setFocusIdx] = useState(0);
+  // Triage without leaving the screen. Optimistic locally so the row responds at
+  // once; the run's own re-rank picks it up next time the capture is scored.
+  const setVerdict = (entity: string, verdict: string) => {
+    setAlerts((prev) => prev.map((a) => (a.entity === entity ? { ...a, verdict } : a)));
+    api.verdict(entity, verdict).catch(() => {
+      setAlerts((prev) => prev.map((a) => (a.entity === entity ? { ...a, verdict: '' } : a)));
+    });
+  };
   const onOpenRef = useRef(onOpen);
   onOpenRef.current = onOpen;
-  const toggleSort = (key: SortKey) =>
-    setSort((s0) => ({ key, dir: s0.key === key && s0.dir === 'asc' ? 'desc' : 'asc' }));
   const searchRef = useRef<HTMLInputElement>(null);
   // The PS asks why a wallet OR a transaction was flagged. Entities are the
   // investigative unit and stay the default; transactions are one click away.
@@ -266,29 +221,32 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
           setQuery('');
           searchRef.current?.blur();
         }
-        setCursor(null);
-      } else if ((e.key === 'j' || e.key === 'k') && tag !== 'INPUT') {
+      } else if ((e.key === 'j' || e.key === 'k' || e.key === 'ArrowDown'
+                  || e.key === 'ArrowUp' || e.key === 'ArrowRight'
+                  || e.key === 'ArrowLeft') && tag !== 'INPUT') {
         e.preventDefault();
-        // First keypress selects the top row rather than moving from it.
-        setCursor((c) => (c === null ? 0 : Math.max(0, c + (e.key === 'j' ? 1 : -1))));
+        const fwd = ['j', 'ArrowDown', 'ArrowRight'].includes(e.key);
+        setFocusIdx((i) => {
+          const n = visibleRef.current.length;
+          if (!n) return 0;
+          return Math.min(n - 1, Math.max(0, i + (fwd ? 1 : -1)));
+        });
       } else if (e.key === 'Enter' && tag !== 'INPUT' && tag !== 'BUTTON') {
-        // Completes the keyboard loop: j/k to move, Enter to open. Without this
-        // the cursor was a highlight that could not do anything.
-        const row = document.querySelector<HTMLElement>('tr[data-open][data-cursor="1"]');
-        const id = row?.getAttribute('data-open');
-        if (id) { e.preventDefault(); onOpenRef.current(id); }
+        const a = visibleRef.current[focusRef.current];
+        if (a) { e.preventDefault(); onOpenRef.current(a.entity); }
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // Keep the keyboard cursor scrolled into view - but never scroll on mount.
-  useEffect(() => {
-    if (cursor === null) return;
-    document.querySelector<HTMLTableRowElement>(`tr[data-row="${cursor}"]`)
-      ?.scrollIntoView({ block: 'nearest' });
-  }, [cursor]);
+  // Refs, because the key handler is bound once and must not close over a
+  // stale filtered list.
+  const visibleRef = useRef<Alert[]>([]);
+  const focusRef = useRef(0);
+  visibleRef.current = visible;
+  focusRef.current = focusIdx;
+
 
   useEffect(() => {
     if (level !== 'transactions') return;
@@ -444,23 +402,55 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
             </select>
           </>
         )}
-        <Chip layer="confirm" active={unreviewed} onClick={() => setUnreviewed(!unreviewed)}>
-          unreviewed only
-        </Chip>
 
       </div>
 
-      {/* --- queue --------------------------------------------------------- */}
+      {/* --- rail + briefing ----------------------------------------------- */}
+      {/* Two panes, not a table. Sixty leads scanned on the left, one lead read
+          on the right. The spreadsheet gave every lead nineteen small values and
+          no room for the one field that says why it is here; this gives the rail
+          the four channels worth scanning and the briefing everything else. */}
       <Panel pad={false}>
-        {/* The threshold governs this table, so it sits on it. Sharing the filter
-            row instead pushed that row to two lines at every viewport width and
-            put a global control among per-facet toggles. */}
         <div className="flex items-center gap-3 px-3 py-2 border-b border-rule-soft bg-surface-2">
           <label htmlFor="thr" className="colhead">confidence threshold</label>
           <input id="thr" type="range" min={0.05} max={0.95} step={0.05} value={threshold}
                  className="w-40 accent-[var(--fusion)]"
                  onChange={(e) => setThreshold(Number(e.target.value))} />
           <span className="mono text-md font-semibold w-9 text-fusion">{threshold.toFixed(2)}</span>
+          {/* Queue scope, not a facet - it belongs with the threshold rather than
+              among the typology chips, where it wrapped the row onto two lines. */}
+          <Chip layer="confirm" active={unreviewed} onClick={() => setUnreviewed(!unreviewed)}>
+            unreviewed only
+          </Chip>
+          {/* Three candidate presentations, live. Delete the two that lose. */}
+          <label htmlFor="sort" className="colhead ml-2">order by</label>
+          <select id="sort" value={`${sort.key}:${sort.dir}`}
+                  onChange={(e) => {
+                    const [key, dir] = e.target.value.split(':');
+                    setSort({ key: key as SortKey, dir: dir as 'asc' | 'desc' });
+                  }}
+                  className="h-6 bg-surface border border-rule px-1 mono text-2xs
+                             text-ink-soft cursor-pointer outline-none focus:border-ink">
+            <option value="rank:asc">model rank</option>
+            <option value="total_out:desc">value moved</option>
+            <option value="novelty:desc">novelty</option>
+            <option value="confidence:desc">confidence</option>
+            <option value="n_ips:desc">announcing IPs</option>
+          </select>
+          <span className="flex items-center gap-0.5 ml-2">
+            <span className="colhead mr-1">layout</span>
+            {([['table', 'table'], ['dossier', 'dossier'], ['focus', 'focus']] as const)
+              .map(([k, label]) => (
+                <button key={k} onClick={() => setView(k)} aria-pressed={view === k}
+                        className="mono text-2xs px-2 h-6 border transition-colors
+                                   duration-150 cursor-pointer"
+                        style={view === k
+                          ? { borderColor: 'var(--ink)', background: 'var(--ink)', color: 'var(--paper)' }
+                          : { borderColor: 'var(--rule)', color: 'var(--ink-soft)' }}>
+                  {label}
+                </button>
+              ))}
+          </span>
           <span className="flex items-center gap-3 ml-auto text-2xs text-ink-dim">
             <span className="hidden xl:flex items-center gap-2">
               <span className="colhead">evidence</span>
@@ -479,182 +469,29 @@ export function AlertQueue({ onOpen }: { onOpen: (entity: string) => void }) {
             </span>
           </span>
         </div>
-        {/* The table needs 62rem. Below that it scrolls - which it always did,
-            but silently: 65% of the columns were unreachable on a phone with no
-            indication they existed. */}
-        <div className="overflow-x-auto scroll-hint">
-        <table className="w-full border-collapse min-w-[62rem]">
-          <thead>
-            <tr className="border-b border-rule">
-              {COLUMNS.map((c) => (
-                <th key={c.key}
-                    onClick={c.sort ? () => toggleSort(c.sort!) : undefined}
-                    aria-sort={c.sort && sort.key === c.sort
-                      ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}
-                    className={`colhead px-3 py-2 ${c.align} ${c.width}
-                      ${c.sort ? 'cursor-pointer select-none hover:text-ink' : ''}`}>
-                  <span className="inline-flex items-center gap-1">
-                    {c.label}
-                    {c.sort ? (
-                      <span className={sort.key === c.sort ? 'text-ink' : 'text-ink-dim opacity-45'}>
-                        {sort.key === c.sort
-                          ? (sort.dir === 'asc' ? SortUp : SortDown)
-                          : SortNone}
-                      </span>
-                    ) : null}
-                  </span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {visible.map((a, ri) => {
-              const below = a.confidence < threshold;
-              const typs = a.typologies ? a.typologies.split('|').filter(Boolean) : [];
-              const attributed = a.attribution_status === 'ok' && Boolean(a.top_asn);
-              // Log, because value moved spans 24,224x across this queue - four
-              // and a half orders of magnitude. A linear bar would render
-              // fifty-nine leads as an empty track and one as full.
-              const mag = maxValue > 1
-                ? Math.log10(Math.max(a.total_out, 1)) / Math.log10(maxValue)
-                : 0;
-              return (
-                <tr key={a.entity}
-                    onClick={() => onOpen(a.entity)}
-                    tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === 'Enter') onOpen(a.entity); }}
-                    data-row={ri}
-                    data-open={a.entity}
-                    data-cursor={ri === cursor ? '1' : '0'}
-                    style={{ animationDelay: `${Math.min(ri, 14) * 18}ms` }}
-                    className={`anim-rise row-hover border-b border-rule-soft cursor-pointer
-                      ${below ? 'opacity-50' : ''}
-                      ${a.verdict === 'dismissed' ? 'opacity-40' : ''}
-                      ${ri === cursor ? 'bg-chain-wash outline outline-1 -outline-offset-1 outline-chain' : ''}`}>
 
-                  {/* Rank. The top three carry the model's strongest claim, so
-                      they are the only ones set at size; below that the ordinal
-                      is a reference, not a headline. */}
-                  <td className="pl-3 pr-1 py-2.5 align-top num">
-                    <span className={a.rank <= 3
-                      ? 'mono text-lg font-semibold text-ink'
-                      : 'mono text-sm text-ink-dim'}>{a.rank}</span>
-                  </td>
-
-                  <td className="px-3 py-2.5 align-top"><Evidence a={a} /></td>
-
-                  {/* The identity, and what it is made of. This is the anchor of
-                      the row: the one thing the analyst acts on. */}
-                  <td className="px-3 py-2.5 align-top">
-                    <div className="mono text-md font-semibold text-ink whitespace-nowrap
-                                    flex items-center gap-2">
-                      {a.entity}
-                      {a.verdict === 'confirmed' && (
-                        <span className="text-confirm" title="Confirmed by an analyst">{CheckMark}</span>
-                      )}
-                    </div>
-                    <div className="text-2xs text-ink-dim whitespace-nowrap mt-0.5">
-                      <span className="mono">{fmt.int(a.n_addresses)}</span> addr
-                      <span aria-hidden className="text-rule"> · </span>
-                      <span className="mono">{fmt.int(a.n_tx)}</span> tx
-                      <span aria-hidden className="text-rule"> · </span>
-                      <span className="mono">{fmt.int(a.n_ips)}</span> IP
-                    </div>
-                  </td>
-
-                  {/* Pattern. Absent is the quiet case - a fifth of the queue has
-                      no named typology, and a full tag on each made the widest
-                      column a repeated statement about nothing. */}
-                  <td className="px-3 py-2.5 align-top">
-                    {a.raised_by === 'novelty' ? (
-                      <Tag layer="network"
-                           title="The classifier ranked this low; the novelty detector ranked it high. A reserved-slot alert — the answer to typologies nobody labelled.">
-                        novelty slot
-                      </Tag>
-                    ) : typs.length ? (
-                      <div className="flex flex-wrap gap-1">
-                        {typs.map((t) => <Tag key={t} layer="fusion">{fmt.typology(t)}</Tag>)}
-                      </div>
-                    ) : (
-                      <span className="text-sm text-ink-dim"
-                            title="The classifier scored this highly on learned behaviour, but none of the six named laundering typologies matched. Open the case file for the SHAP reasons.">
-                        model-only
-                      </span>
-                    )}
-                  </td>
-
-                  {/* Attribution. Three of sixty resolve, and this is the entire
-                      thesis of the project landing on screen - so when it lands
-                      it is the loudest thing in the row, and when it does not it
-                      is the quietest. */}
-                  <td className="px-3 py-2.5 align-top">
-                    {attributed ? (
-                      <div>
-                        <div className="mono text-md font-semibold text-network whitespace-nowrap">
-                          AS{a.top_asn}
-                        </div>
-                        <div className="text-2xs text-ink-soft whitespace-nowrap mt-0.5">
-                          {a.top_asn_type} · {a.top_country} ·{' '}
-                          <span className="mono">{fmt.conf(a.attribution_confidence)}</span>
-                        </div>
-                      </div>
-                    ) : (
-                      <span className="text-sm text-ink-dim"
-                            title="Every candidate IP for this entity resolved to shared infrastructure. The engine suppressed the attribution rather than name someone on evidence that cannot carry it.">
-                        <span aria-hidden className="text-rule">—</span>{' '}
-                        {a.attribution_status === 'ok' ? 'no link' : 'suppressed'}
-                      </span>
-                    )}
-                  </td>
-
-                  {/* Confidence and its interval at the same weight. The
-                      calibrator clips at 0.97, so 54 of 60 leads print 0.96 or
-                      0.97 - measured - and the number that varies least used to
-                      be the largest thing in the row. The interval spans
-                      0.093-0.382 across the same queue, and that is the half
-                      worth reading. */}
-                  <td className="px-3 py-2.5 align-top num whitespace-nowrap">
-                    <span className="mono text-md font-semibold">{fmt.conf(a.confidence)}</span>
-                    <span className="mono text-2xs text-ink-soft ml-1">±{fmt.conf(a.interval)}</span>
-                  </td>
-
-                  <td className="px-3 py-2.5 align-top num">
-                    <span className="mono text-sm text-network">{fmt.conf(a.novelty)}</span>
-                  </td>
-
-                  {/* Value moved, with the magnitude drawn. This is the one
-                      quantity on the page with a real range, and length is the
-                      channel the eye compares fastest. */}
-                  <td className="px-3 py-2.5 align-top">
-                    <div className="mono text-md font-semibold text-chain num">
-                      {fmt.btc(a.total_out)}
-                    </div>
-                    {/* Right-anchored, so the bar ends where its number ends and
-                        grows leftward. Left-anchored under a right-aligned figure,
-                        the two read as unrelated objects. */}
-                    <div className="flex justify-end mt-1.5"
-                         title={`received ${fmt.btc(a.total_in)}`}>
-                      <div className="h-1.5 anim-bar"
-                           style={{ width: `${Math.max(3, mag * 100)}%`,
-                                    background: 'var(--chain)',
-                                    animationDelay: `${Math.min(ri, 14) * 18 + 90}ms` }} />
-                    </div>
-                  </td>
-
-                  <td className="pl-1 pr-3 py-2.5 align-top text-ink-dim">{ChevronRight}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-
+        <div>
+          {view === 'table' && (
+            <TableView rows={visible} maxValue={maxValue} threshold={threshold}
+                       sort={sort} onOpen={onOpen}
+                       onSort={(k) => setSort((s0) => ({
+                         key: k as SortKey,
+                         dir: s0.key === k && s0.dir === 'asc' ? 'desc' : 'asc',
+                       }))} />
+          )}
+          {view === 'dossier' && (
+            <DossierView rows={visible} maxValue={maxValue} onOpen={onOpen} />
+          )}
+          {view === 'focus' && (
+            <FocusView rows={visible} index={Math.min(focusIdx, Math.max(0, visible.length - 1))}
+                       onIndex={setFocusIdx} onOpen={onOpen} onVerdict={setVerdict} />
+          )}
+          {visible.length === 0 && (
+            <div className="p-10 text-center text-sm text-ink-soft">
+              No leads match these filters. Lower the threshold or clear a filter.
+            </div>
+          )}
         </div>
-
-        {visible.length === 0 && (
-          <div className="p-6 text-center text-sm text-ink-soft">
-            No alerts match these filters. Lower the threshold or clear a filter.
-          </div>
-        )}
       </Panel>
 
       </>)}

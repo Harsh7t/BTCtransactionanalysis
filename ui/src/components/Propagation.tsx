@@ -281,7 +281,10 @@ export function Propagation({ className = '' }: { className?: string }) {
       announce(0);
       for (let i = 0; i < 900; i++) step(i * 30, 30);
       nodes.forEach((n) => { n.lit = 0.5; });
-      draw(0);
+      // Draw at the time the simulation reached. Wave rings measure their age
+      // against it, and draw(0) made every ring born after t=0 negative-radius -
+      // arc() throws on that, which blanked the whole app under reduced motion.
+      draw(899 * 30);
       return;
     }
 

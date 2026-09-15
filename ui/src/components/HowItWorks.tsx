@@ -128,9 +128,9 @@ const CHN: Node[] = [
           'private keys — so those five are one owner. Chain those merges and 1.8 million ' +
           'addresses collapse into roughly 830,000 owners. Checked on real Bitcoin: ' +
           'addresses grouped this way share a label 99.79% of the time.' },
-  { id: 'c3', layer: 'chain', head: '132 features per actor',
+  { id: 'c3', layer: 'chain', head: '141 features per actor',
     sub: 'behaviour, timing, money graph, Node2Vec',
-    title: 'A portrait in 132 numbers',
+    title: 'A portrait in 141 numbers',
     body: 'Each owner described by how they spend, what hours they keep, who they deal with, ' +
           'and where they sit in the flow of money — plus 64 learned dimensions of the graph ' +
           'around them.' },
@@ -248,7 +248,7 @@ function Flow() {
              lane carries source IP, port and timestamp, resolves them to ASN and host class
              offline, and builds an entity by IP co-occurrence matrix. The chain lane carries
              TXIDs, addresses and amounts, collapses addresses into actors by common-input
-             ownership, and derives 132 features per actor. The two meet at a fusion step —
+             ownership, and derives 141 features per actor. The two meet at a fusion step —
              a hypergeometric co-occurrence test under Benjamini-Hochberg control, plus a
              calibrated gradient-boosted model — which emits one ranked, explainable lead.">
         <defs>
@@ -557,12 +557,12 @@ const RESULTS: {
   label: string; value: number; base: number; dp: number;
   ours: string; theirs: string; note: string; layer: 'fusion' | 'chain' | 'network';
 }[] = [
-  { label: 'detection · PR-AUC', value: 0.3048, base: 0.0039, dp: 4, layer: 'fusion',
+  { label: 'detection · PR-AUC', value: 0.2998, base: 0.0039, dp: 4, layer: 'fusion',
     ours: 'model', theirs: 'base rate',
-    note: '78× the 0.39% base rate on 2.47M rows. Rules alone score 0.0030 — below it.' },
-  { label: 'attribution · top-1 accuracy', value: 0.9321, base: 0.3378, dp: 4, layer: 'network',
+    note: '77× the 0.39% base rate on 2.47M rows. Rules alone score 0.0030 — below it.' },
+  { label: 'attribution · top-1 accuracy', value: 0.9243, base: 0.3378, dp: 4, layer: 'network',
     ours: 'measured', theirs: 'chance',
-    note: 'And where the evidence is shared infrastructure it suppresses instead of guessing: 75% of pairs on the bulk run.' },
+    note: 'And where the evidence is shared infrastructure it suppresses instead of guessing: 28,661 times on the bulk run.' },
   { label: 'clustering · label agreement', value: 0.9979, base: 0.8209, dp: 4, layer: 'chain',
     ours: 'real Bitcoin', theirs: 'shuffle control',
     note: 'Not synthetic. 96,023 Elliptic++ addresses, address-disjoint split.' },

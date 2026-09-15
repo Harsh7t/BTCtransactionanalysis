@@ -9,7 +9,7 @@ export const STAGES: [string, string][] = [
   ['enrich', 'resolve every IP to ASN and country, offline'],
   ['resolve', 'collapse addresses into actors — common-input ownership'],
   ['graph', 'actor-to-actor money flow, entity × IP matrix'],
-  ['features', '132 features per actor, including Node2Vec'],
+  ['features', '141 features per actor, including Node2Vec'],
   ['detect', 'score every actor, calibrate the probability'],
   ['attribute', 'which IP is really theirs — with FDR control'],
   ['explain', 'exact SHAP, turned into English'],
@@ -42,19 +42,19 @@ export const DETAIL: [string, string][] = [
    'co-occurrence matrix the attribution test needs. Sparse, not dense — that is what keeps ' +
    '2.4 million rows inside laptop memory.'],
   ['Describing each actor',
-   '132 numbers per actor: chain behaviour, timing rhythm, network posture, position in the ' +
+   '141 numbers per actor: chain behaviour, timing rhythm, network posture, position in the ' +
    'money graph, and 64 learned Node2Vec dimensions. The most expensive stage by far, and ' +
    'fully vectorised — it is expressed as Polars expressions so the whole matrix computes in ' +
    'parallel rather than row by row.'],
   ['Scoring every actor',
    'Gradient-boosted trees score all of them, then isotonic regression calibrates the output ' +
    'so that 0.90 means roughly a 90% chance rather than merely "higher than 0.80". Measured ' +
-   'calibration error on the bulk profile: 0.0405.'],
+   'calibration error on the bulk profile: 0.0381.'],
   ['Who was it?',
    'For every actor–IP pair, a hypergeometric test asks whether they co-occur more than ' +
    'chance predicts given how much traffic each generates — with Benjamini–Hochberg control ' +
    'across all pairs at α = 0.01. Where the evidence points at shared infrastructure the ' +
-   'attribution is suppressed rather than guessed. On the bulk run, 75% were suppressed.'],
+   'attribution is suppressed rather than guessed. On the bulk run, 28,661 were suppressed.'],
   ['Why it was flagged',
    'Exact SHAP values — TreeExplainer, not an approximation — for the alerts actually shown. ' +
    'Sixty of them, not 830,000: there is no reason to explain alerts nobody will open. The ' +
@@ -85,7 +85,7 @@ export const PLAIN: string[] = [
   'Draw who paid whom, and separately, which owners were seen coming from which IP addresses. ' +
   'Both are needed: one is the money, the other is the machine.',
 
-  'Describe every owner with 132 numbers — how they spend, what hours they keep, who they ' +
+  'Describe every owner with 141 numbers — how they spend, what hours they keep, who they ' +
   'deal with, where they sit in the flow of money.',
 
   'Score every owner for how unusual they look, then convert that score into an honest ' +
@@ -94,7 +94,7 @@ export const PLAIN: string[] = [
   'Ask whether an owner and an IP genuinely belong together or merely appear together. ' +
   'If the answer is a shared VPN or an exchange, it says nothing rather than naming the wrong machine.',
 
-  'For each alert, work out which of those 132 numbers actually moved the score, and turn ' +
+  'For each alert, work out which of those 141 numbers actually moved the score, and turn ' +
   'the top few into a sentence an analyst can act on.',
 
   'Save the alerts, the evidence and a receipt: the exact input file, the seed, the model, ' +

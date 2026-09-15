@@ -76,6 +76,7 @@
       <div>9 &nbsp; Explainability</div>
       <div>10 &nbsp; Measured results</div>
       <div>11 &nbsp; Limits and failure modes</div>
+      <div>12 &nbsp; The analyst interface</div>
     </div>
   </div>
 
@@ -215,7 +216,7 @@ in code. The container is additionally verified under <span class="mono">--netwo
   <!-- api -->
   <rect x="222" y="284" width="512" height="50" fill="#F4F6F8" stroke="#C3CCD4"/>
   <text x="478" y="304" text-anchor="middle" font-size="11.5" font-weight="700">FastAPI — same process, no serialisation boundary</text>
-  <text x="478" y="322" text-anchor="middle" font-size="9.5" font-family="monospace" fill="#3D4C59">/api/alerts · /api/case/{e} · /api/graph/{e} · /api/transactions · /api/model · /api/provenance</text>
+  <text x="478" y="322" text-anchor="middle" font-size="9.5" font-family="monospace" fill="#3D4C59">/api/alerts · /api/alerts/{e} · /api/graph/{e} · /api/transactions · /api/model · /api/provenance</text>
   <path d="M478 252 V284" stroke="#56646F" marker-end="url(#a2)"/>
 
   <rect x="222" y="360" width="512" height="38" fill="#fff" stroke="#0E1C27" stroke-width="1.3"/>
@@ -233,14 +234,16 @@ in code. The container is additionally verified under <span class="mono">--netwo
   <tr><th style="width:44mm">Package</th><th>Responsibility</th></tr>
   <tr><td class="mono">ingest/</td><td><span class="mono">parsers.py</span> (CSV / JSONL / XML → one frame), <span class="mono">schema.py</span>, <span class="mono">mapper.py</span>, <span class="mono">enrich.py</span> (offline GeoIP / ASN)</td></tr>
   <tr><td class="mono">graph/</td><td><span class="mono">resolve.py</span> — common-input ownership; <span class="mono">build.py</span> — money graph and the entity × IP matrix</td></tr>
-  <tr><td class="mono">features/</td><td><span class="mono">extract.py</span> — 68 engineered features; <span class="mono">embeddings.py</span> — the 64-d Node2Vec block</td></tr>
-  <tr><td class="mono">detect/</td><td><span class="mono">supervised.py</span> (GBDT), <span class="mono">novelty.py</span> (IsolationForest + HDBSCAN), <span class="mono">typologies.py</span> (rules, evidence only), <span class="mono">transaction_head.py</span>, <span class="mono">fuse.py</span></td></tr>
+  <tr><td class="mono">features/</td><td><span class="mono">extract.py</span> — 77 engineered features, five of which correct for right-censoring; <span class="mono">embeddings.py</span> — the 64-d Node2Vec block</td></tr>
+  <tr><td class="mono">detect/</td><td><span class="mono">supervised.py</span> (GBDT), <span class="mono">novelty.py</span> (IsolationForest + HDBSCAN), <span class="mono">typologies.py</span> (rules, evidence only), <span class="mono">transaction_head.py</span>, <span class="mono">fuse.py</span> (fusion + isotonic calibration), <span class="mono">pu.py</span> (Positive-Unlabelled learning, measured on Elliptic)</td></tr>
   <tr><td class="mono">attribute/</td><td><span class="mono">engine.py</span>, <span class="mono">diffusion.py</span>, <span class="mono">significance.py</span>, <span class="mono">infra.py</span>, <span class="mono">behaviour.py</span>, <span class="mono">confidence.py</span> — one module per step of §8</td></tr>
   <tr><td class="mono">explain/</td><td><span class="mono">narrative.py</span> — SHAP values into English; <span class="mono">report.py</span></td></tr>
-  <tr><td class="mono">eval/</td><td><span class="mono">metrics.py</span>, <span class="mono">splits.py</span>, <span class="mono">labels.py</span>, <span class="mono">failures.py</span>, <span class="mono">sensitivity.py</span>, <span class="mono">external.py</span> (Elliptic), <span class="mono">elliptic_pp.py</span></td></tr>
+  <tr><td class="mono">eval/</td><td><span class="mono">metrics.py</span> (including the three queue orderings), <span class="mono">splits.py</span>, <span class="mono">labels.py</span>, <span class="mono">failures.py</span>, <span class="mono">sensitivity.py</span>, <span class="mono">external.py</span> (Elliptic), <span class="mono">elliptic_pp.py</span>, <span class="mono">diagnostics.py</span> (censoring versus drift)</td></tr>
   <tr><td class="mono">generator/</td><td>The simulator: <span class="mono">actors.py</span>, <span class="mono">ledger.py</span>, <span class="mono">network.py</span>, <span class="mono">typologies.py</span>, <span class="mono">simulate.py</span>, <span class="mono">emit.py</span>, and <span class="mono">leak_test.py</span> — the gate of §7</td></tr>
   <tr><td class="mono">store/ · api/</td><td><span class="mono">dao.py</span> — DuckDB access; <span class="mono">api/main.py</span> — FastAPI, same process as the models</td></tr>
   <tr><td class="mono">pipeline.py · train.py</td><td>The nine-stage run, and the training entry point that writes <span class="mono">artifacts/&lt;profile&gt;/</span></td></tr>
+  <tr><td class="mono">ui/src/</td><td><span class="mono">App.tsx</span> — shell and hash routing; <span class="mono">api.ts</span> — typed client; <span class="mono">AlertQueue.tsx</span> with <span class="mono">QueueViews.tsx</span> — the queue and its table / dossier / focus layouts; <span class="mono">CaseFile.tsx</span>, <span class="mono">GraphView.tsx</span>, <span class="mono">ModelPanel.tsx</span>, <span class="mono">Provenance.tsx</span> — §12</td></tr>
+  <tr><td class="mono">scripts/ · tests/</td><td>Offline wheel vendoring, GeoIP fetch, container verification and the score fingerprint; 87 tests, including a cross-process determinism check</td></tr>
 </table>
 </section>
 <section>
@@ -269,7 +272,7 @@ in code. The container is additionally verified under <span class="mono">--netwo
   <td><div class="stg-head">raw file → one clean frame</div>
       <div class="stg-body">CSV, JSONL and XML all parse to the same internal frame, and all three are verified to produce identical clean-row counts. Rows failing validation are quarantined with a named reason and counted, never silently dropped — an analyst has to know what was excluded before trusting what was kept.</div>
       <div class="stg-art">↳ rows_read · rows_clean · quarantine reasons</div></td>
-  <td class="stg-t">3.89 s</td>
+  <td class="stg-t">3.56 s</td>
 </tr>
 <tr>
   <td class="stg-n"><b style="background:#7B4B94">02</b></td>
@@ -277,7 +280,7 @@ in code. The container is additionally verified under <span class="mono">--netwo
   <td><div class="stg-head">every IP → ASN, country, host class</div>
       <div class="stg-body">Lookups run against the DB-IP Lite database bundled inside the image. The host class (residential / mobile / hosting / CDN / VPN / Tor) is what later decides whether an attribution can be trusted or has to be suppressed.</div>
       <div class="stg-art">↳ receipt: mmdb:dbip-asn-lite.mmdb</div></td>
-  <td class="stg-t">2.36 s</td>
+  <td class="stg-t">2.41 s</td>
 </tr>
 <tr>
   <td class="stg-n"><b style="background:#2D6A9F">03</b></td>
@@ -285,7 +288,7 @@ in code. The container is additionally verified under <span class="mono">--netwo
   <td><div class="stg-head">1,810,005 addresses → 829,821 actors</div>
       <div class="stg-body">Common-input ownership: if one transaction spends from five addresses at once, one party held all five private keys. 635,510 co-spend edges plus 344,938 change edges, transitively closed. Mean cluster purity against ground truth is 0.9956.</div>
       <div class="stg-art">↳ mean 2.18 addr/actor · largest 953 · 688,853 singletons</div></td>
-  <td class="stg-t">2.99 s</td>
+  <td class="stg-t">2.96 s</td>
 </tr>
 <tr>
   <td class="stg-n"><b style="background:#2D6A9F">04</b></td>
@@ -293,7 +296,7 @@ in code. The container is additionally verified under <span class="mono">--netwo
   <td><div class="stg-head">actor-to-actor flow, and entity × IP</div>
       <div class="stg-body">Two structures, not one: the money graph (PageRank, sampled betweenness) and, separately, the sparse entity × IP co-occurrence matrix the attribution test needs. Sparse rather than dense is what keeps 2.4M rows inside laptop memory.</div>
       <div class="stg-art">↳ 295,330 graph nodes embedded</div></td>
-  <td class="stg-t">0.88 s</td>
+  <td class="stg-t">0.90 s</td>
 </tr>
 <tr>
   <td class="stg-n"><b style="background:#2D6A9F">05</b></td>
@@ -301,7 +304,7 @@ in code. The container is additionally verified under <span class="mono">--netwo
   <td><div class="stg-head">141 numbers per actor</div>
       <div class="stg-body">Chain behaviour, timing rhythm, network posture, position in the money graph, plus 64 learned Node2Vec dimensions. Expressed as Polars expressions so the whole matrix computes in parallel rather than row by row.</div>
       <div class="stg-art">↳ feature_version 7 — the most expensive stage by far</div></td>
-  <td class="stg-t">77.77 s</td>
+  <td class="stg-t">86.46 s</td>
 </tr>
 <tr>
   <td class="stg-n"><b style="background:#8C5B0E">06</b></td>
@@ -316,7 +319,7 @@ in code. The container is additionally verified under <span class="mono">--netwo
   <td class="stg-name" style="color:#7B4B94">attribute</td>
   <td><div class="stg-head">which IP is really theirs</div>
       <div class="stg-body">A hypergeometric test per actor–IP pair with Benjamini–Hochberg control at α 0.01, weighted by propagation-tree roots and penalised by infrastructure class. Where the evidence points at shared infrastructure it says nothing rather than guessing.</div>
-      <div class="stg-art">↳ 290,787 pairs tested · 28,571 suppressed</div></td>
+      <div class="stg-art">↳ 290,787 pairs tested · 28,661 suppressed</div></td>
   <td class="stg-t" style="color:#C3CCD4">·</td>
 </tr>
 <tr>
@@ -346,19 +349,19 @@ with the artefact each contributes to the provenance receipt. Timings are from t
     <path d="M0 0 L8 4 L0 8 z" fill="#56646F"/></marker></defs>
   <text x="20" y="18" font-size="10" font-weight="700" fill="#56646F" letter-spacing="1">TIME SPENT — BULK PROFILE, THE FIVE STAGES THAT ARE TIMED PER STAGE</text>
   <g font-size="10">
-    <rect x="20" y="34" width="42" height="26" fill="#F4EEF7" stroke="#7B4B94"/><text x="41" y="51" text-anchor="middle">ingest</text>
-    <text x="41" y="76" text-anchor="middle" font-family="monospace" font-size="9" fill="#56646F">3.89s</text>
-    <rect x="72" y="34" width="26" height="26" fill="#F4EEF7" stroke="#7B4B94"/><text x="85" y="51" text-anchor="middle" font-size="8">enr</text>
-    <text x="85" y="76" text-anchor="middle" font-family="monospace" font-size="9" fill="#56646F">2.36s</text>
-    <rect x="108" y="34" width="32" height="26" fill="#EAF1F7" stroke="#2D6A9F"/><text x="124" y="51" text-anchor="middle" font-size="8">rslv</text>
-    <text x="124" y="76" text-anchor="middle" font-family="monospace" font-size="9" fill="#56646F">2.99s</text>
-    <rect x="150" y="34" width="12" height="26" fill="#EAF1F7" stroke="#2D6A9F"/>
-    <text x="156" y="76" text-anchor="middle" font-family="monospace" font-size="9" fill="#56646F">0.88</text>
-    <rect x="172" y="34" width="782" height="26" fill="#EAF1F7" stroke="#2D6A9F" stroke-width="1.4"/>
-    <text x="563" y="51" text-anchor="middle" font-weight="700" fill="#2D6A9F">features — 141 per actor, including the 64-d embedding</text>
-    <text x="563" y="76" text-anchor="middle" font-family="monospace" font-size="10" font-weight="700" fill="#2D6A9F">77.77 s</text>
+    <rect x="20" y="34" width="33" height="26" fill="#F4EEF7" stroke="#7B4B94"/><text x="36.5" y="51" text-anchor="middle" font-size="8">ingest</text>
+    <text x="36.5" y="76" text-anchor="middle" font-family="monospace" font-size="9" fill="#56646F">3.56s</text>
+    <rect x="63" y="34" width="22" height="26" fill="#F4EEF7" stroke="#7B4B94"/><text x="74" y="51" text-anchor="middle" font-size="8">enr</text>
+    <text x="74" y="90" text-anchor="middle" font-family="monospace" font-size="9" fill="#56646F">2.41s</text>
+    <rect x="95" y="34" width="27" height="26" fill="#EAF1F7" stroke="#2D6A9F"/><text x="108.5" y="51" text-anchor="middle" font-size="8">rslv</text>
+    <text x="108.5" y="76" text-anchor="middle" font-family="monospace" font-size="9" fill="#56646F">2.96s</text>
+    <rect x="132" y="34" width="10" height="26" fill="#EAF1F7" stroke="#2D6A9F"/>
+    <text x="137" y="90" text-anchor="middle" font-family="monospace" font-size="9" fill="#56646F">0.90</text>
+    <rect x="152" y="34" width="802" height="26" fill="#EAF1F7" stroke="#2D6A9F" stroke-width="1.4"/>
+    <text x="553" y="51" text-anchor="middle" font-weight="700" fill="#2D6A9F">features — 141 per actor, including the 64-d embedding</text>
+    <text x="553" y="76" text-anchor="middle" font-family="monospace" font-size="10" font-weight="700" fill="#2D6A9F">86.46 s</text>
   </g>
-  <text x="20" y="104" font-size="10" fill="#3D4C59">Feature extraction is <tspan font-weight="700">88% of the timed pipeline</tspan>. It is also the stage that is fully vectorised — the cost is the 64-dimensional embedding over 295,330 nodes, not row-by-row work.</text>
+  <text x="20" y="110" font-size="10" fill="#3D4C59">Feature extraction is <tspan font-weight="700">90% of the timed pipeline</tspan>. It is also the stage that is fully vectorised — the cost is the 64-dimensional embedding over 295,330 nodes, not row-by-row work.</text>
 </svg>
 <figcaption><b>Figure 3.</b> Where the time actually goes, to scale.</figcaption>
 </figure>
@@ -598,7 +601,7 @@ are never confused.</p>
   <div><span>Archetypes</span><span>HDBSCAN</span></div>
   <div><span>Min cluster size</span><span>25</span></div>
   <div><span>Clusters found</span><span>544</span></div>
-  <div><span>Noise fraction</span><span>0.539</span></div>
+  <div><span>Noise fraction</span><span>0.589</span></div>
 </div>
 <h4 style="margin-top:5mm">Calibration &amp; thresholds</h4>
 <div class="kv">
@@ -626,7 +629,7 @@ are never confused.</p>
 ensembles outperformed a GCN on illicit-class F1 on exactly this task. GNNExplainer output is hard to
 turn into analyst-readable prose, and a GNN is likelier to memorise generator fingerprints — a real
 risk when the training data is synthetic. The structural signal a GNN would learn is captured instead
-by the Node2Vec features, whose contribution is measured separately in the ablation (+0.042 PR-AUC).
+by the Node2Vec features, whose contribution is measured separately in the ablation (+0.026 PR-AUC on bulk, +0.114 on demo). Closed-form message passing over the payment graph — the part of a GNN that carries signal, with no deep-learning dependency and exact SHAP kept — was also built and measured. It lowered PR-AUC, and was removed.
 </div>
 
 <h3>What the 141 features are</h3>
@@ -636,47 +639,45 @@ by the Node2Vec features, whose contribution is measured separately in the ablat
     <rect x="20" y="30" width="455" height="34" fill="#EAF1F7" stroke="#2D6A9F"/>
     <text x="32" y="52" font-weight="700" fill="#2D6A9F">64 · Node2Vec embedding dimensions</text>
     <text x="463" y="52" text-anchor="end" font-size="10" fill="#56646F">learned</text>
-
-    <rect x="20" y="70" width="228" height="34" fill="#EAF1F7" stroke="#2D6A9F"/>
-    <text x="32" y="92" font-weight="700" fill="#2D6A9F">32 · chain behaviour</text>
-
-    <rect x="20" y="110" width="100" height="34" fill="#F4EEF7" stroke="#7B4B94"/>
-    <text x="32" y="132" font-weight="700" fill="#7B4B94">14 · network</text>
-
-    <rect x="126" y="110" width="86" height="34" fill="#F4F6F8" stroke="#56646F"/>
-    <text x="136" y="132" font-weight="700" fill="#56646F">12 · timing</text>
-
-    <rect x="218" y="110" width="72" height="34" fill="#F4F6F8" stroke="#56646F"/>
-    <text x="228" y="132" font-weight="700" fill="#56646F">10 · graph</text>
+    <rect x="20" y="70" width="200" height="34" fill="#EAF1F7" stroke="#2D6A9F"/>
+    <text x="32" y="92" font-weight="700" fill="#2D6A9F">28 · chain behaviour</text>
+    <rect x="20" y="110" width="136" height="34" fill="#F4EEF7" stroke="#7B4B94"/>
+    <text x="32" y="132" font-weight="700" fill="#7B4B94">19 · network</text>
+    <rect x="162" y="110" width="93" height="34" fill="#F4F6F8" stroke="#56646F"/>
+    <text x="172" y="132" font-weight="700" fill="#56646F">13 · timing</text>
+    <rect x="261" y="110" width="86" height="34" fill="#F4F6F8" stroke="#56646F"/>
+    <text x="271" y="132" font-weight="700" fill="#56646F">12 · graph</text>
+    <rect x="353" y="110" width="36" height="34" fill="#F4F6F8" stroke="#56646F"/>
+    <text x="397" y="132" font-weight="700" fill="#56646F">5 · censoring correction</text>
   </g>
-  <text x="20" y="170" font-size="10" fill="#3D4C59">Chain behaviour: output counts, value dispersion, fee rate, change-script match, dormancy, round-number fraction, output uniformity…</text>
-  <text x="20" y="186" font-size="10" fill="#3D4C59">Network: ASN count, VPN / Tor / hosting / residential / mobile fractions, IP churn, shared-infrastructure fraction, ephemeral-port profile…</text>
-  <text x="20" y="202" font-size="10" fill="#3D4C59">Timing: inter-transaction gap mean/std/max, burstiness, announcements per transaction. Graph: in/out degree, PageRank, betweenness, chain linearity.</text>
+  <text x="20" y="170" font-size="10" fill="#3D4C59">Chain behaviour: output counts and uniformity, value dispersion, fee rate, script mix, change-script match, peel ratio, round-number fraction, counterparty concentration…</text>
+  <text x="20" y="186" font-size="10" fill="#3D4C59">Network: ASN and country counts, VPN / Tor / hosting / residential / mobile fractions, IP churn, shared-infrastructure fraction, ephemeral-port profile…</text>
+  <text x="20" y="202" font-size="10" fill="#3D4C59">Timing: gap mean / median / max, burstiness, dormancy, hour entropy. Graph: degree, PageRank, betweenness, core number, reach. Censoring: window coverage, per-day rates.</text>
 </svg>
-<figcaption><b>Figure 6.</b> Feature composition. Half the vector is learned rather than engineered — the embedding is the part no analyst could have specified.</figcaption>
+<figcaption><b>Figure 6.</b> Feature composition, to scale. Nearly half the vector — 64 of 141 — is learned rather than engineered — the embedding is the part no analyst could have specified.</figcaption>
 </figure>
 
 <h4>The ten features the model actually leans on</h4>
 <table>
-  <tr><th>Feature</th><th class="n">Gain</th><th>What it captures</th></tr>
-  <tr><td class="mono">max_n_outputs</td><td class="n">0.147</td><td>The widest fan-out this actor ever produced — the shape of a distribution step.</td></tr>
-  <tr><td class="mono">mean_n_outputs</td><td class="n">0.090</td><td>Whether fan-out is habitual or a one-off.</td></tr>
-  <tr><td class="mono">degree_in</td><td class="n">0.081</td><td>How many distinct counterparties pay this actor.</td></tr>
+  <tr><th>Feature</th><th class="n">Share</th><th>What it captures</th></tr>
+  <tr><td class="mono">max_n_outputs</td><td class="n">0.158</td><td>The widest fan-out this actor ever produced — the shape of a distribution step.</td></tr>
   <tr><td class="mono">emb_2</td><td class="n">0.075</td><td>Learned structural position. No hand-written meaning — that is the point.</td></tr>
-  <tr><td class="mono">emb_4</td><td class="n">0.068</td><td>As above.</td></tr>
-  <tr><td class="mono">in_out_ratio</td><td class="n">0.047</td><td>Collector versus distributor behaviour.</td></tr>
-  <tr><td class="mono">vpn_frac</td><td class="n">0.040</td><td><span class="tagn">Network layer.</span> Share of announcements from VPN address space.</td></tr>
-  <tr><td class="mono">gap_mean</td><td class="n">0.032</td><td>Mean interval between transactions — tempo.</td></tr>
-  <tr><td class="mono">tor_frac</td><td class="n">0.026</td><td><span class="tagn">Network layer.</span> Share from Tor exits.</td></tr>
-  <tr><td class="mono">hosting_frac</td><td class="n">0.025</td><td><span class="tagn">Network layer.</span> Share from data-centre ranges.</td></tr>
+  <tr><td class="mono">degree_in</td><td class="n">0.070</td><td>How many distinct counterparties pay this actor.</td></tr>
+  <tr><td class="mono">emb_4</td><td class="n">0.067</td><td>As above.</td></tr>
+  <tr><td class="mono">mean_n_outputs</td><td class="n">0.058</td><td>Whether fan-out is habitual or a one-off.</td></tr>
+  <tr><td class="mono">in_out_ratio</td><td class="n">0.046</td><td>Collector versus distributor behaviour.</td></tr>
+  <tr><td class="mono">vpn_frac</td><td class="n">0.035</td><td><span class="tagn">Network layer.</span> Share of announcements from VPN address space.</td></tr>
+  <tr><td class="mono">pagerank</td><td class="n">0.026</td><td>How central this actor sits in the flow of money.</td></tr>
+  <tr><td class="mono">hosting_frac</td><td class="n">0.026</td><td><span class="tagn">Network layer.</span> Share from data-centre ranges.</td></tr>
+  <tr><td class="mono">tor_frac</td><td class="n">0.024</td><td><span class="tagn">Network layer.</span> Share from Tor exits.</td></tr>
 </table>
-<p style="font-size:9.5pt">Three of the top ten come from the network layer — the half of the data a
+<p style="font-size:9.5pt">Shares are normalised mean |SHAP| over a sample, because the shipped HistGradientBoosting backend exposes no split gain. Three of the top ten come from the network layer — the half of the data a
 blockchain explorer does not have. That is the correlation the problem statement asks for, appearing
 as measured feature importance rather than as a claim.</p>
 </section>
 <section>
 <h2>7 · Training data and splits</h2>
-<p class="lead">No dataset was provided, and <b>no public dataset has a network layer</b>. So "collection" meant writing a defensible simulator — 1,680 lines, seeded, versioned — and then attacking it harder than a reviewer would.</p>
+<p class="lead">No dataset was provided, and <b>no public dataset has a network layer</b>. So "collection" meant writing a defensible simulator — 1,701 lines, seeded, versioned — and then attacking it harder than a reviewer would.</p>
 
 <figure>
 <svg viewBox="0 0 980 470" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica,Arial,sans-serif">
@@ -690,7 +691,7 @@ as measured feature importance rather than as a claim.</p>
 
   <rect x="330" y="84" width="320" height="46" fill="#F4F6F8" stroke="#C3CCD4"/>
   <text x="490" y="104" text-anchor="middle" font-size="11.5" font-weight="700" font-family="monospace">bulk.csv — 2,467,299 rows</text>
-  <text x="490" y="120" text-anchor="middle" font-size="10" fill="#3D4C59">sha256 736a6dfc… · 1,018,850,666 bytes</text>
+  <text x="490" y="120" text-anchor="middle" font-size="10" fill="#3D4C59">sha256 e815c960… · 1,018,855,219 bytes</text>
   <path d="M490 130 V158" stroke="#56646F" stroke-width="1.4" marker-end="url(#a7)"/>
 
   <rect x="290" y="158" width="400" height="46" fill="#EAF1F7" stroke="#2D6A9F" stroke-width="1.3"/>
@@ -699,7 +700,7 @@ as measured feature importance rather than as a claim.</p>
 
   <path d="M490 204 V232" stroke="#56646F" stroke-width="1.4" marker-end="url(#a7)"/>
   <rect x="290" y="232" width="400" height="34" fill="#FBF6ED" stroke="#8C5B0E" stroke-width="1.3"/>
-  <text x="490" y="254" text-anchor="middle" font-size="11" font-weight="700" fill="#8C5B0E">labels attached: 30,880 illicit actors of 829,821</text>
+  <text x="490" y="254" text-anchor="middle" font-size="11" font-weight="700" fill="#8C5B0E">labels attached: 30,709 illicit actors of 829,821</text>
 
   <path d="M490 266 V292 H150 V318" fill="none" stroke="#56646F" stroke-width="1.3" marker-end="url(#a7)"/>
   <path d="M490 266 V292 H377 V318" fill="none" stroke="#56646F" stroke-width="1.3" marker-end="url(#a7)"/>
@@ -710,13 +711,13 @@ as measured feature importance rather than as a claim.</p>
     <rect x="40" y="318" width="220" height="74" fill="#fff" stroke="#2E7D5B" stroke-width="1.4"/>
     <text x="150" y="338" font-size="11" font-weight="700" fill="#2E7D5B">TRAIN</text>
     <text x="150" y="356" font-family="monospace">177,126 actors</text>
-    <text x="150" y="372" fill="#3D4C59">8.93% positive</text>
+    <text x="150" y="372" fill="#3D4C59">8.86% positive</text>
     <text x="150" y="386" font-size="9" fill="#56646F">fits the classifier</text>
 
     <rect x="267" y="318" width="220" height="74" fill="#fff" stroke="#2E7D5B" stroke-width="1.4"/>
     <text x="377" y="338" font-size="11" font-weight="700" fill="#2E7D5B">CALIBRATION</text>
     <text x="377" y="356" font-family="monospace">59,042 actors</text>
-    <text x="377" y="372" fill="#3D4C59">5.94% positive</text>
+    <text x="377" y="372" fill="#3D4C59">5.88% positive</text>
     <text x="377" y="386" font-size="9" fill="#56646F">fits the isotonic map only</text>
 
     <rect x="493" y="318" width="220" height="74" fill="#fff" stroke="#8C5B0E" stroke-width="1.6"/>
@@ -735,7 +736,7 @@ as measured feature importance rather than as a claim.</p>
   <text x="490" y="446" text-anchor="middle" font-size="10.5" fill="#3D4C59">Two typologies appear in <tspan font-style="italic">no</tspan> training or calibration fold at all. The split guard raises rather than warns if one leaks in.</text>
   <text x="490" y="464" text-anchor="middle" font-size="10.5" fill="#3D4C59">Transaction-level splits follow the parent actor's fold, so no actor straddles a boundary.</text>
 </svg>
-<figcaption><b>Figure 7.</b> Data generation through to splits. Note the base-rate gradient across the folds — training at 8.93% and testing at 0.39% is deliberate, because the deployment reality is the latter.</figcaption>
+<figcaption><b>Figure 7.</b> Data generation through to splits. Note the base-rate gradient across the folds — training at 8.86% and testing at 0.39% is deliberate, because the deployment reality is the latter.</figcaption>
 </figure>
 
 <h3>The leak test — and the two defects it caught</h3>
@@ -761,11 +762,11 @@ at the base rate.</p>
 
     <text x="220" y="124" text-anchor="end" font-weight="700">full feature set</text>
     <rect x="230" y="112" width="516" height="18" fill="#8C5B0E"/>
-    <text x="754" y="125" font-family="monospace" font-weight="700" fill="#8C5B0E">10.802×</text>
+    <text x="754" y="125" font-family="monospace" font-weight="700" fill="#8C5B0E">10.795×</text>
     <text x="800" y="125" font-size="10" fill="#3D4C59">the control</text>
   </g>
 </svg>
-<figcaption><b>Figure 8.</b> The leak test, from <span class="mono">artifacts/v1/leak_test.json</span>. The ~8× gap between the strict tier and the control is the evidence that detection comes from topology, timing and network structure rather than from an artefact of how the data was written.</figcaption>
+<figcaption><b>Figure 8.</b> The leak test, from <span class="mono">artifacts/v1/leak_test.json</span>. The ~9× gap between the strict tier and the control is the evidence that detection comes from topology, timing and network structure rather than from an artefact of how the data was written.</figcaption>
 </figure>
 
 <p>It has earned its keep twice, and both catches are the kind only this test finds:</p>
@@ -773,6 +774,15 @@ at the base rate.</p>
   <li><b>Crime proceeds were drawn from a different amount distribution than licit payments</b> — a 1.7× shortcut. Fixed: proceeds now use the same payment-size distribution, with the archetype controlling count and dispersion, never absolute scale.</li>
   <li><b>Mule wallets drew their operating system from a different distribution than everyone else</b> — 1.2× on ephemeral-port features. The model was reading "no BSD hosts" as evidence of laundering.</li>
 </ol>
+
+<h3>Reproducible from the seed — and the defect that said otherwise</h3>
+<p>A published number is worth something only if someone else can regenerate it. The generator was
+documented as deterministic and was not: it chose an actor's announcing IP with Python's built-in string
+<span class="mono">hash()</span>, which is randomised per process. Two runs at the same seed agreed on every
+column except <span class="mono">src_ip</span> — the network half of the thesis. It now uses
+<span class="mono">zlib.crc32</span>, the figures in this document were regenerated after the fix, and
+<span class="mono">tests/test_determinism.py</span> checks the property <i>across a process boundary</i>,
+because inside a single process the bug is invisible.</p>
 
 <h3>Validated against real Bitcoin, not only our own data</h3>
 <p>Because the synthetic set is ours, the chain-side detector is additionally validated on real
@@ -784,6 +794,25 @@ document says so rather than blurring the two.</p>
   <tr><td>Elliptic++, actor level</td><td>96,023 real addresses, address-disjoint split, 5.56% base rate</td><td class="n">PR-AUC 0.3745</td><td>the level we actually ship</td></tr>
   <tr><td>Clustering heuristic itself</td><td>real Bitcoin co-spend clusters</td><td class="n">99.79%</td><td>label agreement vs 82.09% shuffle control</td></tr>
 </table>
+
+<h3>Using the 77% of Elliptic everyone discards — measured, not adopted</h3>
+<p>Elliptic leaves 77% of its transactions unlabelled, and published work — including the baseline above —
+drops them. Positive-Unlabelled learning (Elkan &amp; Noto, 2008) is the principled alternative: estimate how
+likely an illicit transaction was to be labelled at all, then re-weight the unknowns instead of discarding
+them. <span class="mono">detect/pu.py</span> implements it and <span class="mono">eval/external.py</span>
+compares it on the same temporal split.</p>
+<table>
+  <tr><th>Elliptic test split</th><th class="n">Drop the unknowns</th><th class="n">Positive-Unlabelled</th></tr>
+  <tr><td>PR-AUC</td><td class="n">0.8009</td><td class="n">0.7710</td></tr>
+  <tr><td>ROC-AUC</td><td class="n">0.9412</td><td class="n">0.9493</td></tr>
+  <tr><td>Best F1</td><td class="n">0.8259</td><td class="n">0.7059</td></tr>
+  <tr><td>Unlabelled rows used in training</td><td class="n">0</td><td class="n">106,371</td></tr>
+</table>
+<p style="font-size:9.5pt">It loses wherever the top of the ranking matters. The estimate explains why:
+<span class="mono">c = 0.9157</span>, meaning roughly 92% of illicit transactions are <i>already</i> labelled,
+so the unknown pool is nearly all licit and there is little to recover. It is not used on the synthetic data
+at all — the generator knows every label, so <span class="mono">c = 1</span> by construction. Keeping the
+simpler method is now a measurement rather than a convention.</p>
 </section>
 <section>
 <h2>8 · Attribution — the network ⇄ chain correlation</h2>
@@ -867,14 +896,14 @@ the declared class.</p>
 <div class="kv">
   <div><span>Top-1 accuracy</span><span>0.9243</span></div>
   <div><span>Random-choice baseline</span><span>0.3378</span></div>
-  <div><span>Top-3 / MRR</span><span>0.9328 / 0.9324</span></div>
+  <div><span>Top-3 / MRR</span><span>0.9251 / 0.9247</span></div>
   <div><span>Attempt rate</span><span>98.94%</span></div>
   <div><span>Abstentions</span><span>624</span></div>
   <div><span>Mean candidates</span><span>3.641</span></div>
   <div><span>Actor–IP pairs tested</span><span>290,787</span></div>
-  <div><span>Significant after FDR</span><span>280,910</span></div>
-  <div><span>Propagation-root pairs</span><span>80,568</span></div>
-  <div><span>Suppressed</span><span>28,571</span></div>
+  <div><span>Significant after FDR</span><span>280,911</span></div>
+  <div><span>Propagation-root pairs</span><span>80,569</span></div>
+  <div><span>Suppressed</span><span>28,661</span></div>
   <div><span>FDR α</span><span>0.01</span></div>
 </div>
 <p style="font-size:9pt;color:#3D4C59">Abstentions are excluded from accuracy and reported
@@ -995,10 +1024,55 @@ P@50 is 0.92 — which is what an
 analyst working a 60-item queue actually experiences.</p>
 
 <div class="note">
-<b>Accuracy is printed beside its own baseline on purpose.</b> Test accuracy is <b>0.9960</b>. An
+<b>Accuracy is printed beside its own baseline on purpose.</b> Test accuracy is <b>0.9953</b>. An
 all-negative classifier that flags nothing at all scores <b>0.9961</b> — better. That is exactly why
 accuracy never judges this system, and why MCC and PR-AUC do.
 </div>
+
+<h3>What the ranking figures measure</h3>
+<p>Every ranking figure here scores <b>the order an analyst is actually shown</b>, which is not the same as
+scoring the calibrated probability. Isotonic calibration is a step function that clusters near its 0.97
+ceiling, so the queue ranks on the raw fused score at full resolution, uses value moved only to break an exact
+tie, and lets the calibrated probability do the two jobs it is good at: gating the queue at 0.75, and being
+displayed.</p>
+<table>
+  <tr><th>Ordering of the test fold</th><th class="n" style="white-space:nowrap">Bulk PR-AUC</th><th class="n" style="white-space:nowrap">P@10 · P@25 · P@50</th><th class="n" style="white-space:nowrap">Demo PR-AUC</th><th class="n" style="white-space:nowrap">P@10 · P@25 · P@50</th></tr>
+  <tr class="hl"><td>Raw score, value breaks exact ties — shipped</td><td class="n" style="white-space:nowrap">0.2998</td><td class="n" style="white-space:nowrap">1.00 · 0.96 · 0.92</td><td class="n" style="white-space:nowrap">0.5889</td><td class="n" style="white-space:nowrap">1.00 · 1.00 · 0.98</td></tr>
+  <tr><td>Calibrated probability</td><td class="n" style="white-space:nowrap">0.2803</td><td class="n" style="white-space:nowrap">0.60 · 0.84 · 0.86</td><td class="n" style="white-space:nowrap">0.5761</td><td class="n" style="white-space:nowrap">0.80 · 0.88 · 0.86</td></tr>
+  <tr><td>Calibrated, banded to two decimals, value inside a band — previous</td><td class="n" style="white-space:nowrap">0.2720</td><td class="n" style="white-space:nowrap">0.70 · 0.84 · 0.86</td><td class="n" style="white-space:nowrap">0.5606</td><td class="n" style="white-space:nowrap">0.90 · 0.64 · 0.82</td></tr>
+</table>
+<p style="font-size:9.5pt">The banded ordering was the original design, on the reasoning that two leads at 0.93
+are indistinguishable so the bigger money is the better lead. Measured, it is the worst of the three on both
+profiles: on bulk it gives up thirty points of precision in the first ten leads and twelve in the first
+twenty-five. All three orderings are written to <span class="mono">metrics.json → results.*.queue</span> on
+every training run, so the choice stays evidenced.</p>
+
+<h3>Why the late fold is harder — censoring, not drift</h3>
+<p>Discrimination falls across the temporally forward splits: bulk ROC-AUC is 0.9977 on train, 0.9565 on
+calibration and 0.7072 on test. The base rate falls with it, but ROC-AUC does not depend on the base rate, so
+something about the late fold is genuinely harder. Two explanations predict different shapes. <b>Drift</b> —
+the model ageing — predicts a flat deficit. <b>Right-censoring</b> predicts recovery as observation time grows:
+a capture ends, so an actor first seen a week before the end has only a week of behaviour to describe it, and a
+temporally forward split puts exactly those actors in the test fold.
+<span class="mono">eval/diagnostics.py</span> stratifies the fold to tell them apart.</p>
+<table>
+  <tr><th>Time between first activity and end of capture</th><th class="n">Demo days</th><th class="n">ROC-AUC</th><th class="n">Bulk days</th><th class="n">ROC-AUC</th></tr>
+  <tr><td>Shortest quartile</td><td class="n">0.0 – 7.4</td><td class="n">0.761</td><td class="n">2.7 – 12.5</td><td class="n">0.559</td></tr>
+  <tr><td>Second quartile</td><td class="n">7.4 – 13.3</td><td class="n">0.865</td><td class="n">12.5 – 19.8</td><td class="n">0.664</td></tr>
+  <tr><td>Third quartile</td><td class="n">13.3 – 18.5</td><td class="n">0.911</td><td class="n">19.8 – 26.3</td><td class="n">0.727</td></tr>
+  <tr><td>Longest quartile</td><td class="n">18.5 – 23.8</td><td class="n">0.938</td><td class="n">26.3 – 32.3</td><td class="n">0.767</td></tr>
+</table>
+<p style="font-size:9.5pt">Monotone in the observation window on both profiles: it is censoring. On bulk the
+automated verdict in <span class="mono">metrics.json</span> reads <i>indeterminate</i>, because its primary
+check — actors still active in the final 24 hours — has only two members there; the quartile stratification is
+the evidence, and it replicates. Actors that never sent a transaction score at chance (ROC-AUC 0.490 on demo,
+0.497 on bulk), because almost every feature is sender-side: a low score on such an actor means
+<i>unranked</i>, never <i>cleared</i>.</p>
+<p style="font-size:9.5pt">Five features normalise each aggregate by the window that was actually available.
+They are worth +0.042 PR-AUC on demo (0.4323 → 0.4746) and −0.004 on bulk (0.2772 → 0.2734) — a gain on one
+profile and a wash on the other, reported both ways. The raw window length is deliberately <b>not</b> a
+feature: the generator front-loads campaigns, so calendar position would teach the model that late means licit.
+The leak test passes with the correction in place.</p>
 
 <h3>Calibration — does 0.90 mean 90%?</h3>
 <figure>
@@ -1007,40 +1081,40 @@ accuracy never judges this system, and why MCC and PR-AUC do.
   <line x1="80" y1="20" x2="80" y2="190" stroke="#0E1C27"/>
   <text x="490" y="220" text-anchor="middle" font-size="10" fill="#56646F">predicted probability bin →</text>
   <text x="30" y="26" font-size="9" fill="#56646F">1.0</text><text x="30" y="192" font-size="9" fill="#56646F">0.0</text>
-  <rect x="90" y="185.8" width="26" height="4.2" fill="#C3CCD4"/>
+  <rect x="90" y="186.2" width="26" height="3.8" fill="#C3CCD4"/>
   <rect x="120" y="189.6" width="26" height="0.4" fill="#8C5B0E"/>
   <text x="118" y="204" text-anchor="middle" font-size="8" fill="#56646F">0.02</text>
-  <rect x="172" y="165.0" width="26" height="25.0" fill="#C3CCD4"/>
+  <rect x="172" y="169.0" width="26" height="21.0" fill="#C3CCD4"/>
   <rect x="202" y="189.5" width="26" height="0.5" fill="#8C5B0E"/>
-  <text x="200" y="204" text-anchor="middle" font-size="8" fill="#56646F">0.15</text>
-  <rect x="254" y="146.3" width="26" height="43.7" fill="#C3CCD4"/>
-  <rect x="284" y="188.9" width="26" height="1.1" fill="#8C5B0E"/>
-  <text x="282" y="204" text-anchor="middle" font-size="8" fill="#56646F">0.26</text>
-  <rect x="336" y="131.3" width="26" height="58.6" fill="#C3CCD4"/>
-  <rect x="366" y="189.2" width="26" height="0.8" fill="#8C5B0E"/>
-  <text x="364" y="204" text-anchor="middle" font-size="8" fill="#56646F">0.34</text>
-  <rect x="418" y="114.8" width="26" height="75.2" fill="#C3CCD4"/>
-  <rect x="448" y="190.0" width="26" height="0.0" fill="#8C5B0E"/>
-  <text x="446" y="204" text-anchor="middle" font-size="8" fill="#56646F">0.44</text>
-  <rect x="500" y="95.9" width="26" height="94.1" fill="#C3CCD4"/>
-  <rect x="530" y="188.5" width="26" height="1.5" fill="#8C5B0E"/>
-  <text x="528" y="204" text-anchor="middle" font-size="8" fill="#56646F">0.55</text>
-  <rect x="582" y="74.7" width="26" height="115.3" fill="#C3CCD4"/>
-  <rect x="612" y="185.8" width="26" height="4.2" fill="#8C5B0E"/>
-  <text x="610" y="204" text-anchor="middle" font-size="8" fill="#56646F">0.68</text>
-  <rect x="664" y="67.1" width="26" height="122.9" fill="#C3CCD4"/>
-  <rect x="694" y="190.0" width="26" height="0.0" fill="#8C5B0E"/>
+  <text x="200" y="204" text-anchor="middle" font-size="8" fill="#56646F">0.12</text>
+  <rect x="254" y="152.7" width="26" height="37.3" fill="#C3CCD4"/>
+  <rect x="284" y="189.1" width="26" height="0.9" fill="#8C5B0E"/>
+  <text x="282" y="204" text-anchor="middle" font-size="8" fill="#56646F">0.22</text>
+  <rect x="336" y="136.7" width="26" height="53.3" fill="#C3CCD4"/>
+  <rect x="366" y="189.0" width="26" height="1.0" fill="#8C5B0E"/>
+  <text x="364" y="204" text-anchor="middle" font-size="8" fill="#56646F">0.31</text>
+  <rect x="418" y="113.1" width="26" height="76.9" fill="#C3CCD4"/>
+  <rect x="448" y="188.1" width="26" height="1.9" fill="#8C5B0E"/>
+  <text x="446" y="204" text-anchor="middle" font-size="8" fill="#56646F">0.45</text>
+  <rect x="500" y="95.2" width="26" height="94.8" fill="#C3CCD4"/>
+  <rect x="530" y="186.1" width="26" height="3.9" fill="#8C5B0E"/>
+  <text x="528" y="204" text-anchor="middle" font-size="8" fill="#56646F">0.56</text>
+  <rect x="582" y="76.3" width="26" height="113.7" fill="#C3CCD4"/>
+  <rect x="612" y="181.9" width="26" height="8.1" fill="#8C5B0E"/>
+  <text x="610" y="204" text-anchor="middle" font-size="8" fill="#56646F">0.67</text>
+  <rect x="664" y="67.8" width="26" height="122.2" fill="#C3CCD4"/>
+  <rect x="694" y="184.3" width="26" height="5.7" fill="#8C5B0E"/>
   <text x="692" y="204" text-anchor="middle" font-size="8" fill="#56646F">0.72</text>
-  <rect x="746" y="42.0" width="26" height="148.0" fill="#C3CCD4"/>
-  <rect x="776" y="166.7" width="26" height="23.3" fill="#8C5B0E"/>
+  <rect x="746" y="41.9" width="26" height="148.1" fill="#C3CCD4"/>
+  <rect x="776" y="176.3" width="26" height="13.7" fill="#8C5B0E"/>
   <text x="774" y="204" text-anchor="middle" font-size="8" fill="#56646F">0.87</text>
-  <rect x="828" y="25.7" width="26" height="164.3" fill="#C3CCD4"/>
-  <rect x="858" y="58.6" width="26" height="131.4" fill="#8C5B0E"/>
-  <text x="856" y="204" text-anchor="middle" font-size="8" fill="#56646F">0.97</text>
+  <rect x="828" y="27.0" width="26" height="163.0" fill="#C3CCD4"/>
+  <rect x="858" y="75.5" width="26" height="114.5" fill="#8C5B0E"/>
+  <text x="856" y="204" text-anchor="middle" font-size="8" fill="#56646F">0.96</text>
   <rect x="700" y="24" width="12" height="12" fill="#C3CCD4"/><text x="718" y="34" font-size="10" fill="#3D4C59">predicted</text>
   <rect x="790" y="24" width="12" height="12" fill="#8C5B0E"/><text x="808" y="34" font-size="10" fill="#3D4C59">observed</text>
 </svg>
-<figcaption><b>Figure 12.</b> Reliability on the test fold, from <span class="mono">metrics.json → reliability_curve</span>. The top bin predicts 0.9664 and observes 0.7727 across 88 actors. Isotonic regression cut calibration error on the calibration fold from <b>0.1712 to 0.0091</b>; on the far harsher test fold it lands at 0.0381. The model is still optimistic in the middle bins, and the chart shows that rather than hiding it.</figcaption>
+<figcaption><b>Figure 12.</b> Reliability on the test fold, from <span class="mono">metrics.json → reliability_curve</span>. The top bin predicts 0.9586 and observes 0.6735 across 98 actors. Isotonic regression cut calibration error on the calibration fold from <b>0.0984 to 0.0075</b>; on the far harsher test fold it lands at 0.0381, down from 0.1972 uncalibrated. The model is still optimistic in the middle bins — the test fold's base rate is fifteen times lower than the fold the calibrator learned on — and the chart shows that rather than hiding it.</figcaption>
 </figure>
 
 <h3>Transaction-level head</h3>
@@ -1049,7 +1123,7 @@ accuracy never judges this system, and why MCC and PR-AUC do.
   <tr><td>Transactions scored</td><td class="n">595,929</td><td>2,596 illicit; splits follow the parent actor's fold</td></tr>
   <tr><td>Test set</td><td class="n">125,308</td><td>192 positives — a 0.0015 base rate</td></tr>
   <tr><td>PR-AUC</td><td class="n">0.0726</td><td>vs 0.0015 baseline — <b>48× chance</b></td></tr>
-  <tr><td>ROC-AUC</td><td class="n">0.8714</td><td></td></tr>
+  <tr><td>ROC-AUC</td><td class="n">0.8317</td><td></td></tr>
   <tr><td>Precision@10</td><td class="n">0.90</td><td>the top of the ranked TXID list is usable</td></tr>
 </table>
 <p style="font-size:9.5pt">Weaker than the actor-level model, and necessarily so — a transaction has
@@ -1072,7 +1146,7 @@ because the problem statement asks for flagged <i>wallets and transactions</i>.<
   <div><span>Impure clusters</span><span>4,267</span></div>
   <div><span>Behavioural archetypes</span><span>544</span></div>
   <div><span>Noise fraction</span><span>0.5387</span></div>
-  <div><span>Illicit actors labelled</span><span>30,880</span></div>
+  <div><span>Illicit actors labelled</span><span>30,709</span></div>
 </div>
 </div>
 <p style="font-size:9.5pt">Two levels of clustering, as the problem statement asks: <b>identity</b>
@@ -1086,10 +1160,12 @@ clustering (addresses → actors, by common-input ownership) and <b>behavioural<
 <h3>Where the model actually fails</h3>
 <table>
   <tr><th>Actor</th><th>Kind</th><th class="n">Score</th><th>Why</th></tr>
-  <tr><td class="mono">ENT-702409</td><td>false positive</td><td class="n">0.97</td><td>Licit, but its feature profile sits in the overlap between transient behaviour and laundering topology.</td></tr>
-  <tr><td class="mono">ENT-251721</td><td>false positive</td><td class="n">0.97</td><td>Announced almost entirely from shared infrastructure, which lifts network-layer features without the chain layer supporting the flag.</td></tr>
-  <tr><td class="mono">ENT-31606</td><td>false negative</td><td class="n">0.01</td><td>Genuinely <span class="mono">rapid_layering</span>, but too few transactions to establish the topology the model needs.</td></tr>
-  <tr><td class="mono">ENT-36685</td><td>false negative</td><td class="n">0.01</td><td>Genuinely <span class="mono">peel_chain</span>, same cause: not enough history.</td></tr>
+  <tr><td class="mono" style="white-space:nowrap">ENT-254513</td><td>false positive</td><td class="n">0.97</td><td>A licit short-lived pass-through wallet whose profile sits in the overlap between transient behaviour and laundering topology.</td></tr>
+  <tr><td class="mono" style="white-space:nowrap">ENT-432299</td><td>false positive</td><td class="n">0.97</td><td>Announced almost entirely from shared infrastructure, which lifts network-layer features without the chain layer supporting the flag.</td></tr>
+  <tr><td class="mono" style="white-space:nowrap">ENT-324757</td><td>false positive</td><td class="n">0.97</td><td>Another transient wallet in the same overlap region.</td></tr>
+  <tr><td class="mono" style="white-space:nowrap">ENT-31606</td><td>false negative</td><td class="n">0.01</td><td>Genuinely <span class="mono">rapid_layering</span>, but too few transactions to establish the topology the model needs.</td></tr>
+  <tr><td class="mono" style="white-space:nowrap">ENT-325798</td><td>false negative</td><td class="n">0.01</td><td>Genuinely <span class="mono">rapid_layering</span>; same cause.</td></tr>
+  <tr><td class="mono" style="white-space:nowrap">ENT-25041</td><td>false negative</td><td class="n">0.01</td><td>A genuine extortion actor outside every named typology, with too little history to show a topology.</td></tr>
 </table>
 <p style="font-size:9.5pt">The pattern is consistent and worth stating plainly: <b>the model needs
 history.</b> An actor with a handful of transactions cannot show a topology, so a real criminal who
@@ -1101,7 +1177,7 @@ has just started is exactly the case this system is weakest on.</p>
   <tr><td>Attribution collapses below ~10% observation coverage</td><td>Worse than guessing — see Figure 10. Coverage must be stated with any accuracy claim.</td></tr>
   <tr><td>Training data is synthetic</td><td>Mitigated by the leak test and by two real-data validations, but the network layer itself has no real-world validation set in existence.</td></tr>
   <tr><td>Explanation faithfulness unmeasured</td><td>SHAP is shown; no deletion/insertion test proves it drives the prediction.</td></tr>
-  <tr><td>Scaling is superlinear</td><td>4.4× the data cost 8.9× the time. The <span class="mono">features</span> stage dominates at 77.77 s of the run.</td></tr>
+  <tr><td>Scaling is superlinear</td><td>4.4× the data cost 9.5× the time in the <span class="mono">features</span> stage — 9.10 s on demo, 86.46 s on bulk — which dominates the run.</td></tr>
   <tr><td>Calibration is optimistic in mid-range bins</td><td>Visible in Figure 12. Trust the ordering more than the absolute number between 0.3 and 0.7.</td></tr>
   <tr><td>Transaction head is weak in absolute terms</td><td>PR-AUC 0.0726. Usable at the top of the list (P@10 0.90), not as a filter.</td></tr>
 </table>
@@ -1115,13 +1191,13 @@ pickled by 1.9.0, and "the scores are bit-identical" is a fact about two specifi
 than a property of the design.</p>
 
 <div class="kv" style="margin-top:4mm">
-  <div><span>Input</span><span>bulk.csv · sha256 736a6dfc3026db82…</span></div>
-  <div><span>Size</span><span>1,018,850,666 bytes</span></div>
+  <div><span>Input</span><span>bulk.csv · sha256 e815c960431d1682…</span></div>
+  <div><span>Size</span><span>1,018,855,219 bytes</span></div>
   <div><span>Seed</span><span>20260826</span></div>
   <div><span>Feature version</span><span>7</span></div>
   <div><span>Git commit</span><span>5a20a09</span></div>
   <div><span>Backend</span><span>sklearn_histgb</span></div>
-  <div><span>Trained</span><span>2026-08-28T06:39:45Z</span></div>
+  <div><span>Trained</span><span>2026-09-07T11:10:58Z</span></div>
 </div>
 
 <h3>Reproducing this document's figures</h3>
@@ -1136,6 +1212,232 @@ than a property of the design.</p>
   <tr><td class="mono">make offline-check</td><td>Fails on any URL in application code.</td></tr>
 </table>
 
+
+</section>
+
+<section>
+<h2>12 · The analyst interface</h2>
+<p class="lead">The interface is what an analyst actually uses: one offline process serving both the API and
+the built React application, opening in the light theme. It is organised around a single question — which of
+these leads do I open first, and why is each one here?</p>
+
+<table>
+  <tr><th style="width:30mm">Screen</th><th style="width:30mm">Route</th><th>What it is for</th></tr>
+  <tr><td>Landing</td><td class="mono">/</td><td>The thesis, a drop zone for a capture, and three bundled samples (judge, demo, bulk). The live diffusion field behind it draws the problem the system solves: a peer announces a transaction and the rest relay it after randomised delays.</td></tr>
+  <tr><td>Scoring</td><td>while a run is active</td><td>The nine stages as a track, each explained in plain and technical language while it runs.</td></tr>
+  <tr><td>Alert queue</td><td class="mono">#/alerts</td><td>The ranked leads — described below.</td></tr>
+  <tr><td>Case file</td><td class="mono">#/case/&#123;entity&#125;</td><td>The investigative document for one lead: assessment, calibrated confidence, what would change it, SHAP attributions, network attribution, link analysis, activity timeline, evidence chain with real TXIDs, HTML export, confirm and dismiss.</td></tr>
+  <tr><td>Model</td><td class="mono">#/model</td><td>Scorecard, ablation, reliability diagram, held-out typologies, leak test, real-data validation, attribution against coverage, resolution quality, failure gallery, feature importance, split integrity.</td></tr>
+  <tr><td>Provenance</td><td class="mono">#/provenance</td><td>The run manifest — input SHA-256, seed, feature version, backend, git commit — plus ingest integrity and per-stage timings.</td></tr>
+</table>
+
+<h3>The alert queue</h3>
+<p>The queue opens on the reduction the system exists to produce — rows ingested, actors resolved, ranked leads
+— with the ingest receipt one click away rather than occupying the screen. Every lead then carries three
+<b>evidence marks</b>: <span class="tagc">chain</span> when a named typology corroborates it,
+<span class="tagn">network</span> when the attribution engine named an IP, and <span class="tagf">model</span>
+for the classifier's own call or a reserved novelty slot. On a demo-profile run in
+<span class="mono">data/case.duckdb</span>, 41 of the 60 leads carry a typology, 3 carry a resolved network
+identity and 8 occupy novelty slots.</p>
+<figure>
+<svg viewBox="0 0 980 360" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica,Arial,sans-serif">
+  <defs><marker id="a13" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#56646F"/></marker></defs>
+  <text x="20" y="18" font-size="10" font-weight="700" fill="#56646F" letter-spacing="1">THE QUEUE OPENS ON THE REDUCTION — BULK PROFILE</text>
+  <text x="20" y="62" font-size="30" font-weight="800" fill="#0E1C27">2,467,299</text>
+  <text x="20" y="80" font-size="10" fill="#56646F">rows ingested</text>
+  <path d="M200 52 H250" stroke="#56646F" stroke-width="1.4" marker-end="url(#a13)"/>
+  <text x="268" y="62" font-size="30" font-weight="800" fill="#2D6A9F">829,821</text>
+  <text x="268" y="80" font-size="10" fill="#56646F">actors resolved</text>
+  <path d="M420 52 H470" stroke="#56646F" stroke-width="1.4" marker-end="url(#a13)"/>
+  <text x="488" y="62" font-size="30" font-weight="800" fill="#8C5B0E">60</text>
+  <text x="488" y="80" font-size="10" fill="#56646F">ranked leads</text>
+
+  <text x="20" y="116" font-size="10" font-weight="700" fill="#56646F" letter-spacing="1">EVIDENCE MARKS — CHAIN · NETWORK · MODEL</text>
+  <rect x="20" y="128" width="8" height="16" fill="#2D6A9F"/><rect x="32.5" y="128.5" width="7" height="15" fill="none" stroke="#C3CCD4"/><rect x="44" y="128" width="8" height="16" fill="#8C5B0E"/>
+  <text x="66" y="140" font-size="11" fill="#0E1C27">a named typology corroborates the flag; no owner was named</text>
+  <rect x="20" y="154" width="8" height="16" fill="#2D6A9F"/><rect x="32" y="154" width="8" height="16" fill="#7B4B94"/><rect x="44" y="154" width="8" height="16" fill="#8C5B0E"/>
+  <text x="66" y="166" font-size="11" fill="#0E1C27">typology <tspan font-weight="700">and</tspan> an IP the engine was willing to name — rare by design</text>
+  <rect x="20.5" y="180.5" width="7" height="15" fill="none" stroke="#C3CCD4"/><rect x="32.5" y="180.5" width="7" height="15" fill="none" stroke="#C3CCD4"/><rect x="44" y="180" width="8" height="16" fill="#8C5B0E"/>
+  <text x="66" y="192" font-size="11" fill="#0E1C27">the model's own call, or a reserved novelty slot</text>
+  <text x="600" y="140" font-size="10.5" fill="#3D4C59">Read down the column, not across a row. The middle</text>
+  <text x="600" y="156" font-size="10.5" fill="#3D4C59">mark lights up on a handful of leads in sixty, which makes</text>
+  <text x="600" y="172" font-size="10.5" fill="#3D4C59">the engine's refusal to guess visible instead of implied.</text>
+
+  <text x="20" y="222" font-size="10" font-weight="700" fill="#56646F" letter-spacing="1">THREE LAYOUTS OF THE SAME SIXTY LEADS</text>
+  <rect x="20" y="230" width="300" height="96" fill="#fff" stroke="#C3CCD4"/>
+  <rect x="20" y="230" width="300" height="12" fill="#F4F6F8"/>
+  <rect x="42" y="245.0" width="3.5" height="7" fill="#2D6A9F"/>
+  <rect x="47" y="245.0" width="3.5" height="7" fill="#C3CCD4"/>
+  <rect x="52" y="245.0" width="3.5" height="7" fill="#8C5B0E"/>
+  <rect x="64" y="247.0" width="54" height="4" fill="#0E1C27"/>
+  <rect x="130" y="247.0" width="40" height="4" fill="#E1E7EB"/>
+  <rect x="220" y="247.0" width="22" height="4" fill="#3D4C59"/>
+  <rect x="250" y="251.0" width="60" height="2" fill="#2D6A9F"/>
+  <rect x="42" y="257.5" width="3.5" height="7" fill="#2D6A9F"/>
+  <rect x="47" y="257.5" width="3.5" height="7" fill="#C3CCD4"/>
+  <rect x="52" y="257.5" width="3.5" height="7" fill="#8C5B0E"/>
+  <rect x="64" y="259.5" width="54" height="4" fill="#0E1C27"/>
+  <rect x="130" y="259.5" width="40" height="4" fill="#E1E7EB"/>
+  <rect x="220" y="259.5" width="22" height="4" fill="#3D4C59"/>
+  <rect x="258" y="263.5" width="52" height="2" fill="#2D6A9F"/>
+  <rect x="42" y="270.0" width="3.5" height="7" fill="#2D6A9F"/>
+  <rect x="47" y="270.0" width="3.5" height="7" fill="#7B4B94"/>
+  <rect x="52" y="270.0" width="3.5" height="7" fill="#8C5B0E"/>
+  <rect x="64" y="272.0" width="54" height="4" fill="#0E1C27"/>
+  <rect x="130" y="272.0" width="40" height="4" fill="#E1E7EB"/>
+  <rect x="220" y="272.0" width="22" height="4" fill="#3D4C59"/>
+  <rect x="266" y="276.0" width="44" height="2" fill="#2D6A9F"/>
+  <rect x="42" y="282.5" width="3.5" height="7" fill="#2D6A9F"/>
+  <rect x="47" y="282.5" width="3.5" height="7" fill="#C3CCD4"/>
+  <rect x="52" y="282.5" width="3.5" height="7" fill="#8C5B0E"/>
+  <rect x="64" y="284.5" width="54" height="4" fill="#0E1C27"/>
+  <rect x="130" y="284.5" width="40" height="4" fill="#E1E7EB"/>
+  <rect x="220" y="284.5" width="22" height="4" fill="#3D4C59"/>
+  <rect x="274" y="288.5" width="36" height="2" fill="#2D6A9F"/>
+  <rect x="42" y="295.0" width="3.5" height="7" fill="#C3CCD4"/>
+  <rect x="47" y="295.0" width="3.5" height="7" fill="#C3CCD4"/>
+  <rect x="52" y="295.0" width="3.5" height="7" fill="#8C5B0E"/>
+  <rect x="64" y="297.0" width="54" height="4" fill="#0E1C27"/>
+  <rect x="130" y="297.0" width="40" height="4" fill="#E1E7EB"/>
+  <rect x="220" y="297.0" width="22" height="4" fill="#3D4C59"/>
+  <rect x="282" y="301.0" width="28" height="2" fill="#2D6A9F"/>
+  <rect x="42" y="307.5" width="3.5" height="7" fill="#2D6A9F"/>
+  <rect x="47" y="307.5" width="3.5" height="7" fill="#C3CCD4"/>
+  <rect x="52" y="307.5" width="3.5" height="7" fill="#8C5B0E"/>
+  <rect x="64" y="309.5" width="54" height="4" fill="#0E1C27"/>
+  <rect x="130" y="309.5" width="40" height="4" fill="#E1E7EB"/>
+  <rect x="220" y="309.5" width="22" height="4" fill="#3D4C59"/>
+  <rect x="290" y="313.5" width="20" height="2" fill="#2D6A9F"/>
+  <rect x="340" y="230" width="300" height="96" fill="#fff" stroke="#C3CCD4"/>
+  <text x="356" y="256" font-size="16" font-weight="800" fill="#0E1C27">1</text>
+  <rect x="376" y="244" width="96" height="7" fill="#0E1C27"/>
+  <rect x="376" y="256" width="240" height="3.5" fill="#C3CCD4"/>
+  <rect x="376" y="263" width="226" height="3.5" fill="#C3CCD4"/>
+  <rect x="376" y="270" width="170" height="3.5" fill="#7B4B94"/>
+  <text x="356" y="300" font-size="16" font-weight="800" fill="#0E1C27">2</text>
+  <rect x="376" y="288" width="96" height="7" fill="#0E1C27"/>
+  <rect x="376" y="300" width="240" height="3.5" fill="#C3CCD4"/>
+  <rect x="376" y="307" width="226" height="3.5" fill="#C3CCD4"/>
+  <rect x="376" y="314" width="170" height="3.5" fill="#7B4B94"/>
+  <rect x="660" y="230" width="300" height="96" fill="#fff" stroke="#C3CCD4"/>
+  <rect x="668.0" y="237" width="8" height="6" fill="#2D6A9F"/>
+  <rect x="677.2" y="237" width="8" height="6" fill="#2D6A9F"/>
+  <rect x="686.4" y="237" width="8" height="6" fill="#2D6A9F"/>
+  <rect x="695.6" y="237" width="8" height="6" fill="#C3CCD4"/>
+  <rect x="704.8" y="237" width="8" height="9" fill="#0E1C27"/>
+  <rect x="714.0" y="237" width="8" height="6" fill="#2D6A9F"/>
+  <rect x="723.2" y="237" width="8" height="6" fill="#2D6A9F"/>
+  <rect x="732.4" y="237" width="8" height="6" fill="#7B4B94"/>
+  <rect x="741.6" y="237" width="8" height="6" fill="#2D6A9F"/>
+  <rect x="750.8" y="237" width="8" height="6" fill="#2D6A9F"/>
+  <rect x="760.0" y="237" width="8" height="6" fill="#C3CCD4"/>
+  <rect x="769.2" y="237" width="8" height="6" fill="#2D6A9F"/>
+  <rect x="778.4" y="237" width="8" height="6" fill="#2D6A9F"/>
+  <rect x="787.6" y="237" width="8" height="6" fill="#2D6A9F"/>
+  <rect x="796.8" y="237" width="8" height="6" fill="#2D6A9F"/>
+  <rect x="806.0" y="237" width="8" height="6" fill="#2D6A9F"/>
+  <rect x="815.2" y="237" width="8" height="6" fill="#7B4B94"/>
+  <rect x="824.4" y="237" width="8" height="6" fill="#2D6A9F"/>
+  <rect x="833.6" y="237" width="8" height="6" fill="#2D6A9F"/>
+  <rect x="842.8" y="237" width="8" height="6" fill="#2D6A9F"/>
+  <rect x="852.0" y="237" width="8" height="6" fill="#C3CCD4"/>
+  <rect x="861.2" y="237" width="8" height="6" fill="#2D6A9F"/>
+  <rect x="870.4" y="237" width="8" height="6" fill="#2D6A9F"/>
+  <rect x="879.6" y="237" width="8" height="6" fill="#2D6A9F"/>
+  <rect x="888.8" y="237" width="8" height="6" fill="#2D6A9F"/>
+  <rect x="898.0" y="237" width="8" height="6" fill="#7B4B94"/>
+  <rect x="907.2" y="237" width="8" height="6" fill="#2D6A9F"/>
+  <rect x="916.4" y="237" width="8" height="6" fill="#2D6A9F"/>
+  <rect x="925.5999999999999" y="237" width="8" height="6" fill="#C3CCD4"/>
+  <rect x="934.8" y="237" width="8" height="6" fill="#2D6A9F"/>
+  <rect x="944.0" y="237" width="8" height="6" fill="#2D6A9F"/>
+  <rect x="668" y="254" width="120" height="11" fill="#0E1C27"/>
+  <rect x="668" y="274" width="150" height="3.5" fill="#C3CCD4"/>
+  <rect x="668" y="282" width="138" height="3.5" fill="#C3CCD4"/>
+  <rect x="668" y="290" width="126" height="3.5" fill="#C3CCD4"/>
+  <rect x="668" y="298" width="114" height="3.5" fill="#C3CCD4"/>
+  <rect x="668" y="306" width="102" height="3.5" fill="#C3CCD4"/>
+  <rect x="838" y="254" width="114" height="64" fill="#F4F6F8" stroke="#E1E7EB"/>
+  <line x1="896" y1="290" x2="936.0" y2="290.0" stroke="#7B4B94" stroke-width="1"/>
+  <circle cx="936.0" cy="290.0" r="4" fill="#A2453B"/>
+  <line x1="896" y1="290" x2="924.3" y2="305.6" stroke="#7B4B94" stroke-width="1"/>
+  <circle cx="924.3" cy="305.6" r="3" fill="#56646F"/>
+  <line x1="896" y1="290" x2="896.0" y2="312.0" stroke="#C3CCD4" stroke-width="1"/>
+  <circle cx="896.0" cy="312.0" r="3" fill="#56646F"/>
+  <line x1="896" y1="290" x2="867.7" y2="305.6" stroke="#C3CCD4" stroke-width="1"/>
+  <circle cx="867.7" cy="305.6" r="4" fill="#A2453B"/>
+  <line x1="896" y1="290" x2="856.0" y2="290.0" stroke="#C3CCD4" stroke-width="1"/>
+  <circle cx="856.0" cy="290.0" r="3" fill="#56646F"/>
+  <line x1="896" y1="290" x2="867.7" y2="274.4" stroke="#C3CCD4" stroke-width="1"/>
+  <circle cx="867.7" cy="274.4" r="3" fill="#56646F"/>
+  <line x1="896" y1="290" x2="896.0" y2="268.0" stroke="#C3CCD4" stroke-width="1"/>
+  <circle cx="896.0" cy="268.0" r="4" fill="#A2453B"/>
+  <line x1="896" y1="290" x2="924.3" y2="274.4" stroke="#C3CCD4" stroke-width="1"/>
+  <circle cx="924.3" cy="274.4" r="3" fill="#56646F"/>
+  <circle cx="896" cy="290" r="4.5" fill="#0E1C27"/>
+  <text x="20" y="344" font-size="10.5" font-weight="700" fill="#0E1C27">table</text><text x="56" y="344" font-size="10.5" fill="#3D4C59">— compare a value down a column</text>
+  <text x="340" y="344" font-size="10.5" font-weight="700" fill="#0E1C27">dossier</text><text x="390" y="344" font-size="10.5" fill="#3D4C59">— read the written cases in order</text>
+  <text x="660" y="344" font-size="10.5" font-weight="700" fill="#0E1C27">focus</text><text x="696" y="344" font-size="10.5" fill="#3D4C59">— one lead, at presentation size</text>
+</svg>
+<figcaption><b>Figure 13.</b> The alert queue. The funnel states the whole system in one line; the evidence
+marks say what stands behind each lead before it is opened; the three layouts trade comparison for reading.</figcaption>
+</figure>
+
+<table style="break-inside:avoid;page-break-inside:avoid">
+  <tr><th style="width:24mm">Layout</th><th style="width:48mm">Optimised for</th><th>What each lead shows</th></tr>
+  <tr><td class="mono">table</td><td>Comparing a value down a column across all sixty leads. The default.</td><td>Rank, evidence marks, entity with address · transaction · IP counts, pattern, attribution, confidence with its interval, novelty, and value moved with a log-scaled magnitude bar. Numeric columns sort.</td></tr>
+  <tr><td class="mono">dossier</td><td>Reading the queue in order.</td><td>Rank in the margin, entity as a heading, the written narrative with its announcing-host sentence set apart in the network colour — the part that differs from lead to lead — then figures and attribution.</td></tr>
+  <tr><td class="mono">focus</td><td>One lead at a time, with someone watching.</td><td>The lead at presentation size; a strip of all sixty leads coloured by evidence, clickable; narrative; figures; the five SHAP drivers; attribution; evidence chain with TXIDs; the link-analysis graph beside it; confirm and dismiss.</td></tr>
+</table>
+
+<p style="font-size:9.5pt">Controls: <span class="mono">/</span> focuses search, <span class="mono">j</span> /
+<span class="mono">k</span> or the arrow keys move, <span class="mono">Enter</span> opens the case file. Filters
+cover typology, host class and unreviewed leads; a confidence-threshold slider states how many leads it shows and
+how many it suppresses; an entities / transactions switch exposes the transaction-level head. Confirm and dismiss
+post to <span class="mono">/api/alerts/&#123;entity&#125;/verdict</span> and adjust only the next run's presentation
+order — dismissed −0.25, confirmed +0.10 on the ranking score. They never retrain the model, so a triage tool
+cannot quietly learn one analyst's habits.</p>
+
+<h3>Link analysis</h3>
+<p>The server extracts a k-hop subgraph with a hard 1,500-node cap and says when it has capped. Positions are
+computed directly rather than by a force-directed layout, so a case draws the same way every time, and every
+visual channel carries data.</p>
+<table>
+  <tr><th style="width:36mm">Channel</th><th>Encodes</th></tr>
+  <tr><td>Ring</td><td>Hop distance from the subject, which sits at the centre.</td></tr>
+  <tr><td>Side</td><td>Left: counterparties the subject received value from. Right: counterparties it sent value to. A branch keeps the side of the first hop that created it.</td></tr>
+  <tr><td>Position on an arc</td><td>Value rank — the largest flows sit on the horizontal axis.</td></tr>
+  <tr><td>Node size and hue</td><td>Alert score, stretched over the run's observed range so the colour means the same thing on every case file.</td></tr>
+  <tr><td>Edge width</td><td>Log of value moved, because values span several orders of magnitude.</td></tr>
+  <tr><td>Marching dashes</td><td>The traced path, moving in the direction the money moved. Off under reduced motion.</td></tr>
+  <tr><td>Time scrubber</td><td>Replays edges in the order they first carried value, labelled with the real timestamp. Edge timestamps are stored in <span class="mono">entity_edges</span>; a run recorded before they were gets no scrubber rather than a broken one.</td></tr>
+</table>
+<p style="font-size:9.5pt">Hovering a node isolates its neighbourhood; clicking an actor traces its path back to
+the subject and offers its case file; the hop control switches between one, two and three hops; and
+<i>wallets</i> adds the subject's own addresses and transactions as membership links.</p>
+
+<h3>API</h3>
+<table>
+  <tr><th style="width:66mm">Endpoint</th><th>Returns</th></tr>
+  <tr><td class="mono">GET /api/health</td><td>Liveness, whether trained artefacts are present, backend and threshold.</td></tr>
+  <tr><td class="mono">GET /api/runs · /api/runs/latest</td><td>Run history and the latest run's ingest receipt.</td></tr>
+  <tr><td class="mono">POST /api/runs · GET /api/jobs/&#123;id&#125;</td><td>Start scoring a capture, and follow its progress.</td></tr>
+  <tr><td class="mono">POST /api/upload · GET /api/samples</td><td>Score an uploaded capture; list the bundled ones.</td></tr>
+  <tr><td class="mono">GET /api/alerts</td><td>The queue, with optional typology, country, host-class and review filters.</td></tr>
+  <tr><td class="mono">GET /api/alerts/&#123;entity&#125;</td><td>The case file: alert, evidence, attribution candidates, SHAP rows, behaviour profile, transactions.</td></tr>
+  <tr><td class="mono">POST /api/alerts/&#123;entity&#125;/verdict</td><td>Confirm or dismiss.</td></tr>
+  <tr><td class="mono">GET /api/alerts/&#123;entity&#125;/export</td><td>A self-contained HTML case file with the provenance embedded.</td></tr>
+  <tr><td class="mono">GET /api/graph/&#123;entity&#125; · …/expand</td><td>The capped k-hop subgraph with scores and edge timestamps; the entity's own wallets and transactions.</td></tr>
+  <tr><td class="mono">GET /api/transactions</td><td>Transaction-level alerts.</td></tr>
+  <tr><td class="mono">GET /api/model · /api/provenance · /api/quarantine</td><td>Model transparency, the run manifest, and rows rejected at ingest.</td></tr>
+</table>
+
+<h3>Built with</h3>
+<p style="font-size:9.5pt">React and TypeScript, built by Vite into <span class="mono">ui/dist/</span>, which is
+committed so a fresh clone serves the interface without a Node toolchain. Tailwind maps to design tokens defined
+once in <span class="mono">index.css</span>; Cytoscape draws the graph; the small charts are hand-written SVG
+rather than a charting library; fonts are bundled locally, because nothing on an air-gapped machine can be
+fetched.</p>
 <div style="margin-top:10mm;border-top:1.6pt solid #0E1C27;padding-top:3mm;font-size:9pt;color:#56646F">
   <b style="color:#0E1C27">BTC·Fusion</b> — SIH 2026 · PS 26146 · NTRO · Blockchain &amp; Cybersecurity.
   Deeper treatments live beside the code: <span class="mono">docs/technical_writeup.md</span> (approach,
