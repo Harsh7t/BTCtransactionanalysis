@@ -82,7 +82,7 @@ confidence = statistical strength
 
 **Where every candidate is shared infrastructure, attribution is suppressed rather than
 reported at a confidence that would mislead.** An attribution engine that always produces
-an answer is not an attribution engine. 195 abstentions in the evaluated run, and they are
+an answer is not an attribution engine. 195 abstentions on demo (624 on bulk), and they are
 scored separately from errors — declining to answer is not the same as answering wrongly.
 
 Counterfactuals are computed by re-running this model with one input changed, so they are
@@ -90,19 +90,22 @@ a property of the model rather than authored text.
 
 ## Measured performance
 
-| Metric | Value |
-|---|---|
-| Top-1 accuracy | **0.9133** |
-| Random-choice baseline | 0.3449 (mean 3.58 candidates) |
-| Top-3 | 0.9142 · MRR 0.9138 |
-| Attempt rate | 98.6% · 195 abstentions |
+| Metric | demo | **bulk** |
+|---|---|---|
+| Top-1 accuracy | 0.9052 | **0.9243** |
+| Random-choice baseline | 0.3449 (mean 3.58 candidates) | 0.3378 (mean 3.64 candidates) |
+| Top-3 · MRR | 0.9064 · 0.9058 | 0.9251 · 0.9247 |
+| Attempt rate · abstentions | 98.6% · 195 | 98.9% · 624 |
+| Pairs tested → significant at FDR α 0.01 | 66,534 → 64,807 | 290,787 → 280,911 |
+| Attributions suppressed as shared infrastructure | 5,694 | 28,661 |
 
-### Degradation with observation coverage
+### Degradation with observation coverage (demo sweep)
 
 | Coverage | Top-1 | Chance |
 |---|---|---|
 | 5% | 0.593 | **0.740** |
 | 10% | 0.671 | 0.585 |
+| 20% | 0.781 | 0.396 |
 | 35% | 0.862 | 0.284 |
 | 100% | 0.901 | 0.200 |
 

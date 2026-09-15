@@ -155,15 +155,15 @@ answered.
    ② ENRICH      src/dst IP → country, ASN, ASN type, Tor/VPN, from a BUNDLED database
    ③ RESOLVE     Union-Find over co-spends + script-type-refined change heuristic
    ④ GRAPH       igraph tripartite: IP ↔ entity ↔ transaction
-   ⑤ FEATURES    ~60 engineered across 6 families + 64 Node2Vec dimensions
+   ⑤ FEATURES    141 per actor: 77 engineered (chain, network, timing, graph, censoring) + 64 Node2Vec
    ⑥ DETECT      GBDT + IsolationForest + HDBSCAN → fuse → isotonic calibration
    ⑦ ATTRIBUTE   entity ⇄ IP: co-occurrence significance, diffusion weighting, confidence
    ⑧ EXPLAIN     exact SHAP → narrative → evidence chain with real TXIDs
    ⑨ ALERTS      ranked, campaign-linked, persisted to DuckDB
 ```
 
-Measured on this machine: **564k rows end to end in ~16 s (≈36,000 rows/s)**, 8-core
-CPU, no GPU. Per-stage timings are displayed in the UI and recorded per run.
+Measured on this machine: **564k rows end to end in ~15 s (≈39,000 rows/s)** on a laptop
+CPU (Apple M4), no GPU. Per-stage timings are displayed in the UI and recorded per run.
 
 ---
 

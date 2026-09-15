@@ -31,7 +31,7 @@ learning "big = bad" at 1.7× baseline. The archetype now controls the *count* a
 
 Fee is `f(vsize, congestion at timestamp)` and nothing else. It never depends on who is
 spending. This is enforced by the strict tier of the leak test
-(`mean_feerate_sat_vb` measured at 1.145× baseline).
+(`mean_feerate_sat_vb` measured at 1.167× baseline).
 
 ## Network layer
 

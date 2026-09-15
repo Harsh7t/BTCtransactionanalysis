@@ -8,13 +8,13 @@ of them from a fixed seed. If a number is not in one of those files, it is not a
 and does not appear here.
 
 **Two profiles are reported throughout.** `demo` (564,303 rows) is what the live
-demonstration runs on, because it completes in 12 seconds. `bulk` (2,467,299 rows) is
+demonstration runs on, because it completes in about 15 seconds. `bulk` (2,467,299 rows) is
 what the numbers should be judged on, because its 0.39% positive rate is close to what an
 analyst actually faces — the demo profile's 3.3% flatters the model. Where they differ,
 **believe bulk**.
 
 Artefacts: `artifacts/v1` (demo) and `artifacts/bulk`, feature version 7, seed 20260826,
-132 features, backend `sklearn_histgb`.
+141 features, backend `sklearn_histgb`.
 
 ---
 
@@ -52,8 +52,10 @@ CSV/JSON/XML → ① INGEST → ② ENRICH → ③ RESOLVE → ④ GRAPH → ⑤
              → ⑥ DETECT+FUSE → ⑦ ATTRIBUTE → ⑧ EXPLAIN → ⑨ ALERTS
 ```
 
-**Measured throughput: 565,670 rows end to end in 11.8 s.** Per-stage: ingest 0.73 s,
-enrich 0.54 s, resolve 0.64 s, graph 0.19 s, features 8.51 s. 8-core CPU, no GPU.
+**Measured throughput: 564,303 rows end to end in about 14 s** on a laptop CPU (Apple M4), no
+GPU. One live run's Provenance screen: ingest 0.73 s, enrich 0.54 s, resolve 0.58 s, graph
+0.17 s, features 9.96 s, detect 1.79 s, attribute 0.28 s, explain 0.17 s. Wall-clock time is
+machine-dependent; every other figure in this document is deterministic.
 
 Design choices that follow from the deployment context (air-gapped analyst workstation):
 DuckDB not Postgres (a file, not a service); igraph in memory not Neo4j (no analytical
@@ -64,7 +66,7 @@ models (no serialisation boundary, no second service to die mid-demo); no authen
 ## 3. Dataset
 
 No data is provided and **no public dataset has a network layer**, so "collection" means
-writing a defensible simulator. 1,680 lines, seeded, versioned.
+writing a defensible simulator. 1,701 lines, seeded, versioned.
 
 Entity resolution recovers **197,995 entities from 436,187 addresses** via 159,726
 co-spend edges (common-input-ownership) and 78,550 change edges (script-type-refined).
@@ -82,12 +84,12 @@ self-referential. A sharp reviewer attacks the data, not the model. So `make lea
 trains a classifier on fields with **no constructed path to the label** and gates the
 build on them scoring at the base rate.
 
-**Result: PASS. Strict tier 1.242× baseline against 10.068× for the full feature set.**
-The ~8× gap is the evidence that detection comes from topology, timing and network
+**Result: PASS. Strict tier 1.247× baseline against 10.795× for the full feature set.**
+The ~9× gap is the evidence that detection comes from topology, timing and network
 structure rather than from an artefact of how the data was written.
 
-Per-field: `round_number_frac` 1.000×, `ephemeral_linux_frac` 1.140×,
-`mean_feerate_sat_vb` 1.145×, `ephemeral_windows_frac` 1.162×.
+Per-field: `round_number_frac` 1.000×, `ephemeral_linux_frac` 1.149×,
+`mean_feerate_sat_vb` 1.167×, `ephemeral_windows_frac` 1.176×.
 
 It has earned its keep twice:
 
@@ -108,7 +110,7 @@ documented in `leak_test.json → known_residual`.
 | Node2Vec (64-d) | structural roles | nobody labels "mixer-like topology"; the embedding discovers it. CPU-only |
 | Gradient-boosted trees | primary classifier | best-in-class on tabular data; **SHAP is exact for trees**, not approximated |
 | IsolationForest | novelty | linear-time, no distance assumptions, answers "what about patterns you never labelled?" |
-| HDBSCAN | behavioural archetypes | doesn't need *k*, and explicitly labels noise — which is what an outlier is. Recovered **214 archetypes**, 60.9% noise |
+| HDBSCAN | behavioural archetypes | doesn't need *k*, and explicitly labels noise — which is what an outlier is. Recovered **150 archetypes** on demo (69.4% noise) and **544** on bulk (58.9%) |
 | Isotonic regression | calibration | non-parametric, so it fixes arbitrary miscalibration shapes |
 
 **GNNs were rejected on evidence, not taste.** Weber et al. (2019) found tree ensembles
@@ -122,19 +124,23 @@ algorithm) and **records which backend produced every number in the manifest**.
 
 | Stage | demo PR-AUC | bulk PR-AUC |
 |---|---|---|
-| typology rules only | 0.0245 | 0.0030 |
-| + unsupervised novelty | 0.1235 | 0.0207 |
-| + GBDT on engineered features | 0.4516 | 0.2809 |
-| + Node2Vec embeddings | **0.5483** | **0.3231** |
-| + isotonic calibration (shipped) | 0.5291 | 0.3048 |
+| typology rules only | 0.0244 | 0.0030 |
+| + unsupervised novelty | 0.0322 | 0.0080 |
+| + GBDT, before the censoring correction | 0.4323 | 0.2772 |
+| + GBDT on engineered features | 0.4746 | 0.2734 |
+| + Node2Vec embeddings | **0.5889** | **0.2998** |
+| + isotonic calibration (display + gate) | 0.5761 | 0.2803 |
+| = the queue the analyst sees (shipped) | **0.5889** | **0.2998** |
 
 Rules alone sit at or below the base rate on both profiles — 0.0030 against a 0.0039 base
 rate on bulk is *worse than chance*. **The lift is entirely the model**, which is what the
 PS's "a working model, not just rules" asks for. Typology matchers never gate an alert;
 they attach corroboration with real TXIDs to alerts the model already raised.
 
-The final row is the cost of calibration, roughly 4%, and it buys a probability that means
-something (ECE 0.041 on bulk).
+The calibration row is what ranking by the calibrated probability would cost — about 2% on
+demo and 6.5% on bulk — which is why the queue ranks on the raw score and uses the calibrated
+probability only to gate and display. That probability means something: ECE 0.039 on demo,
+0.038 on bulk.
 
 ### The fusion weights — a measurement that overturned our own design
 
@@ -144,17 +150,17 @@ cost ~10% of PR-AUC and bought held-out recall.
 
 **Training on the bulk profile showed the choice did not survive a realistic base rate.**
 
-| Config | demo PR-AUC | **bulk PR-AUC** |
+| Config (calibrated PR-AUC, `metrics.json → fusion_sweep`) | demo | **bulk** |
 |---|---|---|
-| classifier alone | 0.5483 | 0.3231 |
-| 0.85 / 0.05 / 0.10 (original) | 0.4750 | **0.0382** |
+| classifier alone | 0.5761 | 0.2803 |
+| 0.85 / 0.05 / 0.10 (original) | 0.5180 | **0.0440** |
 
-An 88% collapse. Measuring each component on bulk explains it:
+An 84% collapse. Measuring each component on bulk explains it:
 
-| signal, alone on bulk | PR-AUC | vs 0.0039 base rate |
+| signal on bulk (ablation rows) | PR-AUC | vs 0.0039 base rate |
 |---|---|---|
-| supervised classifier | 0.3231 | 83× |
-| unsupervised novelty | 0.0207 | 5.3× |
+| supervised classifier, with Node2Vec | 0.2998 | 77× |
+| unsupervised novelty added to the rules | 0.0080 | 2.1× |
 | **typology evidence** | **0.0030** | **0.77× — below chance** |
 
 *(All three are rows of the ablation table in `metrics.json`, not a separate experiment.)*
@@ -182,8 +188,8 @@ wrong, our own measurement caught it, and the correction is in the artefacts.
 Four layers, because "explainable" is a graded deliverable and not garnish.
 
 1. **SHAP TreeExplainer** — exact per-alert attributions. Top influences on the shipped
-   model: `max_n_outputs` 0.209, `emb_4` 0.069, `emb_1` 0.061, `degree_in` 0.060,
-   `shared_infra_frac` 0.059.
+   bulk model (share of mean |SHAP|): `max_n_outputs` 0.158, `emb_2` 0.075, `degree_in` 0.070,
+   `emb_4` 0.066, `mean_n_outputs` 0.058.
 2. **Narrative templating** — every feature carries the sentence describing the real-world
    behaviour it captures, and the direction is stated, never just the magnitude.
 3. **Evidence chains** — typology matchers attach concrete, human-checkable corroboration:
@@ -202,22 +208,22 @@ where it appears it is always beside its own baseline — see below for why.
 
 | Metric | demo (564k, base 3.3%) | **bulk (2.47M, base 0.39%)** |
 |---|---|---|
-| test entities / positives | 14,083 / 463 | 59,043 / 232 |
-| **PR-AUC** | 0.5291 (16× base) | **0.3048 (78× base)** |
-| Precision @ 10 | 0.90 | 0.90 |
-| Precision @ 50 | 0.92 | **0.90** |
-| **ECE** | 0.0506 | **0.0405** |
-| F1 | 0.5725 | **0.3969** |
-| **MCC** | 0.5657 | **0.4017** |
-| accuracy | 0.9753 | 0.9960 |
-| *all-negative baseline* | *0.9671* | ***0.9961*** |
+| test entities / positives | 14,083 / 460 | 59,043 / 232 |
+| **PR-AUC of the ranking the analyst is shown** | 0.5889 (18× base) | **0.2998 (77× base)** |
+| PR-AUC of the calibrated probability | 0.5761 | 0.2803 |
+| Precision @ 10 / 25 / 50, shipped queue | 1.00 / 1.00 / 0.98 | **1.00 / 0.96 / 0.92** |
+| **ECE** | 0.0393 | **0.0381** |
+| F1 | 0.5918 | **0.3427** |
+| **MCC** | 0.5958 | **0.3417** |
+| accuracy | 0.9781 | 0.9953 |
+| *all-negative baseline* | *0.9673* | ***0.9961*** |
 
-**Read the bulk column.** F1 falls from 0.57 to 0.40 because a 0.39% positive rate is
+**Read the bulk column.** F1 falls from 0.59 to 0.34 because a 0.39% positive rate is
 genuinely harder — the demo profile was flattering us. The *lift* over base rate improves
-(16× → 78×), and precision holds at 0.90 in the top fifty, which is what an analyst
-actually experiences.
+(18× → 77×), and precision holds at 0.92 in the top fifty leads of the shipped queue, which
+is what an analyst actually experiences.
 
-**On accuracy.** On bulk the model scores **0.9960 against an all-negative baseline of
+**On accuracy.** On bulk the model scores **0.9953 against an all-negative baseline of
 0.9961** — by accuracy, it is *worse than doing nothing*. That single line is the whole
 argument for why this project reports PR-AUC and MCC, and treats accuracy as an artefact
 that must never be shown without its control.
@@ -289,11 +295,11 @@ calibrated probability gates the queue and is displayed, but does not order it.
 
 This distinction was not free. The system previously banded the calibrated probability to
 two decimals and ordered by value moved *inside* each band, on the reasoning that two
-entities at 0.93 are indistinguishable so the bigger money is the better lead. Measured on
-the demo test fold, that reasoning is wrong: the calibrator's discarded resolution carries
-real signal, and the banded ordering scored precision@25 of 0.88 and @50 of 0.92 against
-1.00 and 1.00 for the raw score. Twelve points of precision at the top of the queue, for
-nothing. `metrics.json → results.*.queue` now carries all three orderings side by side so
+entities at 0.93 are indistinguishable so the bigger money is the better lead. Measured, that
+reasoning is wrong: the calibrator's discarded resolution carries real signal. On bulk the
+banded ordering scored precision@10 / @25 of 0.70 / 0.84 against 1.00 / 0.96 for the raw
+score; on demo, 0.90 / 0.64 against 1.00 / 1.00. Thirty points of precision in the first ten
+leads on the realistic profile, for nothing. `metrics.json → results.*.queue` now carries all three orderings side by side so
 the choice stays evidenced rather than assumed.
 
 ### Two architectures we measured and did not ship
@@ -301,7 +307,8 @@ the choice stays evidenced rather than assumed.
 **Graph neural network message passing.** Two layers of mean aggregation over the payment
 graph — written in closed form as `(A/deg) @ F` applied twice, so it needs no torch and
 keeps SHAP exact — made the model worse: test raw PR-AUC 0.5786 without it, 0.5586 with
-one hop, 0.5703 with two. The Node2Vec walks already encode structural role, and
+one hop, 0.5703 with two (demo profile, on the model of that time; the experiment code was
+removed with the feature, so these three figures are not in the current artefacts). The Node2Vec walks already encode structural role, and
 re-supplying it as neighbourhood means adds thirty-two correlated columns and no
 information. Removed. This is consistent with Weber et al. (2019), who found tree
 ensembles outperformed a GCN on Elliptic.
@@ -321,15 +328,17 @@ the train or calibration folds, enforced by a guard that raises.
 | | demo | bulk |
 |---|---|---|
 | held-out entities | 71 | 119 |
-| recall at threshold | 0.2254 | **0.1176** |
+| recall at threshold | 0.2113 | **0.1176** |
 
 Materially worse than the test score on both. **That gap is the finding** — the honest
 bound on how the system behaves against a laundering pattern nobody anticipated.
 
 ### Transaction-level (§16.4-G)
 
-137,273 transactions, 1,929 illicit (1.2% of the tested fold). **PR-AUC 0.1098 against a
-0.0121 base rate — 9.1×.** P@10 0.90, P@50 0.40. A second model head over
+Demo: 137,273 transactions, 1,929 illicit; on the 28,516-transaction test fold (1.2% illicit)
+**PR-AUC 0.1041 against a 0.0121 base rate — 8.6×**, P@10 1.00, P@50 0.32. Bulk: 595,929
+transactions; on the 125,308-transaction test fold (0.15% illicit) **PR-AUC 0.0726 against
+0.0015 — 48×**, P@10 0.90, P@50 0.28. A second model head over
 transaction-local features plus the parent entity's score, split by the parent's fold so
 no entity straddles the boundary. Weaker than the entity head, which is expected: a single
 transaction carries far less signal than a wallet cluster's whole history.
@@ -338,14 +347,14 @@ transaction carries far less signal than a wallet cluster's whole history.
 
 | Metric | demo | bulk |
 |---|---|---|
-| **Top-1 accuracy** | 0.9143 | **0.9321** |
+| **Top-1 accuracy** | 0.9052 | **0.9243** |
 | Random-choice baseline | 0.3449 | 0.3378 |
-| Top-3 / MRR | 0.9153 / 0.9148 | 0.9328 / 0.9324 |
+| Top-3 / MRR | 0.9064 / 0.9058 | 0.9251 / 0.9247 |
 | Attempt rate | 98.6% | 98.9% |
 
 A top-1 score is meaningless without knowing how many candidates it was chosen from, so
-the candidate count and the chance baseline ship with it. The engine runs at **2.8×
-chance**, and it *improves* with scale — more observations per entity is exactly what the
+the candidate count and the chance baseline ship with it. The engine runs at **2.7×
+chance** on bulk, and it *improves* with scale — more observations per entity is exactly what the
 diffusion-aware weighting rewards.
 
 ### Attribution vs observation coverage — the honest curve
@@ -475,7 +484,7 @@ collapse of common-input-ownership, and our generator has no analogue of it. See
 The section most teams omit and an NTRO reader will respect most.
 
 - **Every synthetic figure is self-referential.** We wrote the generator. The leak test
-  bounds this — 1.242× against 10.068× — it does not eliminate it.
+  bounds this — 1.247× against 10.795× — it does not eliminate it.
 - **Generator parameters are engineering defaults, not literature-sourced values.** See
   `docs/generator_parameters.md`. Until they are sourced, the defensible claim is about
   the *method and system*, not the absolute detection rate.
@@ -508,7 +517,7 @@ The section most teams omit and an NTRO reader will respect most.
   Weber et al.'s published 0.79 under a different split. That validates the chain-side
   detector and nothing else: Elliptic has no IP, port or timing layer, so the
   network-chain correlation that is this project's actual thesis is still measured only
-  against a generator we wrote ourselves. Elliptic++ (Elmougy & Liu, KDD'23) would add a
+  against a generator we wrote ourselves. Elliptic++ (Elmougy & Liu, KDD'23), run above, adds a
   real address graph and address-level labels, closing more of the chain-side gap - and
   none of the network-side one. No public dataset closes that gap; it needs a real
   multi-vantage-point listener deployment.
@@ -529,7 +538,7 @@ pickled by 1.9.0; the scores match exactly today, and the check fails the build 
 re-vendor changes that.
 
 Three artefact files carry every number: `metrics.json`, `leak_test.json`,
-`manifest.json`. The manifest records the input's SHA-256 (`f090a003…`), the seed
+`manifest.json`. The manifest records the input's SHA-256 (`484d4b5d…` for the demo capture, `e815c960…` for bulk), the seed
 (20260826), the feature version (7), the model backend and the git SHA.
 
 The feature matrix is byte-reproducible from seed, enforced by a golden-file test. That

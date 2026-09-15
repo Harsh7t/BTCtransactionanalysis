@@ -211,6 +211,7 @@ page scrolls: the alert queue is ~3,600px, and the landing is ~3,200px now that
 | `ThemeToggle.tsx` | three-state theme control |
 | `ui.tsx` | shared primitives: `Panel`, `Stat`, `Bar`, `Counter`, `Tag`, `Chip`, `Eyebrow`, `drawOnMount` |
 | `AlertQueue.tsx` | ranked queue, sorting, search, `j`/`k` navigation |
+| `QueueViews.tsx` | the queue's three layouts — table (default), dossier, focus — picked by the layout switch |
 | `CaseFile.tsx` | one entity: evidence, SHAP, graph, attribution |
 | `ModelPanel.tsx` | model transparency, ablation, both real-data validations |
 
@@ -449,7 +450,11 @@ These are testing artefacts, not product bugs. Recognise them rather than
   deletion/insertion test proves the highlighted features drive the prediction.
   This is the one item from the original plan never built.
 - The `stress` generator profile has never been run and would likely OOM.
-- Scaling is superlinear: 4.4× the data cost 8.9× the time.
+- Scaling is superlinear: 4.4× the data cost 9.5× the feature-extraction time (9.10 s demo, 86.46 s bulk).
+- **Fixed 14 Sep 2026 — reduced motion blanked the whole app.** `Propagation.tsx` drew its
+  static reduced-motion frame at t=0 while its waves were born later in the simulated run, so
+  ring radii went negative, `arc()` threw, and with no error boundary nothing rendered. Emulate
+  `prefers-reduced-motion: reduce` and read the console after any canvas change.
 
 ---
 
@@ -509,7 +514,8 @@ stayed `hidden`. Everything above is geometry and computed style, not pixels.
 ## 10 · Where this stands
 
 The interface was rebuilt across `c8fcbec … 3ef619f`, then this document's §3b
-(frames, spacing, type) and the landing explainer landed in `1b7b302`.
+(frames, spacing, type) and the landing explainer landed in `1b7b302`. The alert queue's table / dossier / focus
+layouts and the reduced-motion fix landed in `e7e99dc`.
 `git log --oneline c8fcbec~1..` is the narrative and every message states what
 was measured.
 
@@ -518,8 +524,8 @@ Open, and deliberately not done:
 - **Explanation faithfulness is unmeasured** — §9.
 - **`ui/dist/` is committed** so a clone can `make serve` without a build step.
   Rebuild it with `make ui` and commit the result; do not re-add the ignore rule.
-- The generator's `src_ip` is not reproducible across runs — a backend defect,
-  recorded in `ENGINEERING.md`, but it moves the attribution figures this interface
-  displays, so a UI session should not be surprised by them shifting.
+- The generator's `src_ip` used to differ between runs, which moved the attribution
+  figures this interface displays. Fixed: generation is byte-reproducible now (see
+  `ENGINEERING.md`), so a figure that shifts between runs is a real change, not noise.
 
-*Current at `1b7b302`.*
+*Current at `e7e99dc`.*

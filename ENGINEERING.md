@@ -9,6 +9,8 @@ Do not re-derive what is already written down, and do not duplicate it into new 
 
 | File | What it settles |
 |---|---|
+| `PROJECT_STATUS.md` | **where things stand**: what is built, what changed last, what is open, where the deliverables are |
+| `DESIGN.md` | **architecture**: components, data flow, and why each key decision was made |
 | `docs/technical_writeup.md` | approach, model choice, evaluation, limitations |
 | `docs/ps_compliance.md` | every PS requirement → the command that verifies it |
 | `docs/external_validation.md` | the three validation tracks and what each does NOT prove |
@@ -83,6 +85,10 @@ Full reasoning in `docs/ui_architecture.md`; these are the ones that break thing
   Provenance need `runReady`. Merging them leaks a run the user never loaded.
 - **Any animated number needs a guaranteed final value.** rAF is suspended in a hidden
   tab; a counter can otherwise strand at 15% of the truth and display a false figure.
+- **Check every canvas change with `prefers-reduced-motion: reduce` emulated.** The
+  landing's static background frame once drew wave rings at t=0 with a negative radius;
+  `arc()` threw and, with no error boundary, the whole app rendered blank for any user with
+  reduced motion switched on. Watch the console, not just the screenshot.
 - **One frame between a leaf and the page.** A frame is a border on 3+ sides. `Panel`
   enforces this through React context — a nested `Panel` collapses to `panel-sub`. Inside
   a frame, separate with a background step and space, never another border, and never a
@@ -99,7 +105,7 @@ Full reasoning in `docs/ui_architecture.md`; these are the ones that break thing
 Do not "fix" these without reading the reasoning first.
 
 - **Fusion weights are `supervised 1.00 / novelty 0.00 / evidence 0.00`.** Blending was
-  measured and it destroyed 87% of PR-AUC at a realistic base rate. Reasoning is in
+  measured and it destroyed 84% of PR-AUC at a realistic base rate. Reasoning is in
   `config/detect.yaml` — read the comment before touching it. Coverage is bought instead by
   `novelty_slots: 8` reserved queue positions.
 - **Typology matchers are evidence generators, not detectors.** Rules alone score *below*
@@ -108,7 +114,7 @@ Do not "fix" these without reading the reasoning first.
   a CoinJoin is inverted — this was a real bug. Use `output_uniformity`.
 - **`min_observations: 1` in attribution.** Under randomised diffusion the originator's own
   announcement is frequently seen exactly once; requiring two discards the evidence we want.
-- **Accuracy is reported beside an all-negative baseline** (0.9960 vs 0.9961). That is the
+- **Accuracy is reported beside an all-negative baseline** (0.9953 vs 0.9961 on bulk). That is the
   point: at this base rate accuracy is meaningless. Judge on PR-AUC and MCC.
 
 ## Artefacts
@@ -145,15 +151,18 @@ Known open items:
    quartile against 0.94 on the fullest (`metrics.json → results.test.censoring`). The
    correction features narrow it; nothing creates evidence that was never recorded. Quote
    the stratified numbers, not just the mean.
+3. **`make docker-verify` has not been re-run since the suite grew to 88 tests.** The last
+   container run passed 5/5 with 81.
 
 ## This machine, and what is not installed on it
 
 - System `python3` is **3.9**; the venv is **3.11**. Anything needing `match` statements
-  (the pptx skill's `validate.py`, for one) will not run under the system interpreter.
+  (a pptx `validate.py`, for one) will not run under the system interpreter — build a
+  throwaway venv from the 3.11 interpreter for it rather than installing into `.venv`.
 - **No LibreOffice and no `pdftoppm`.** PDFs are produced by headless Chrome
   (`--print-to-pdf`) and slides are previewed by splitting a deck into one-slide files and
-  running `qlmanage -t` on each. `ppt-build/render_slides.py` in the parent directory does
-  exactly that.
+  running `qlmanage -t` on each. `ppt-build/_hires.py` in the parent directory does
+  exactly that (3200 px per slide), and the deck PDF is assembled from those renders.
 - **The browser pane renders only at the instant of navigation.** Measured: zero rAF
   frames in 45 seconds while it is hidden, so canvas animation never paints and
   screenshots come back black. Verify UI work by measurement (geometry, computed style),
@@ -161,13 +170,21 @@ Known open items:
 
 ## Deliverables that live OUTSIDE this repo
 
-In the parent `sih26/` directory, not tracked here:
+In the parent `sih26/` directory, not tracked here. `PROJECT_STATUS.md` has the full list.
 
-- `BTC-FUSION_SIH2026_Idea.pptx` / `.pdf` — the SIH idea submission, built strictly on the
-  official template (6 slides, Arial, header/footer/oval untouched). Team ID 112,
-  team name `syntax112`. Built by `ppt-build/build.py`; `ppt-build/check_fit.py` measures
-  every text box against its shape with real Arial metrics.
-- `diagrams.html` — the original six plates. Predates the current UI; treat as historical.
+- `BTC-FUSION_SIH2026_Idea.pptx` (+ `ppt-build/BTC-FUSION_SIH2026_Idea.pdf`) — the SIH idea
+  submission on the official template: six slides, the template's own prompts as section
+  headers, tech-stack icons, flowcharts, and charts drawn as editable shapes (native chart
+  objects lost their title and axis fonts in the preview renderer the PDF is built from).
+  `ppt-build/build.py` builds it and reads every figure from `artifacts/`; icons live in
+  `ppt-build/icons/`. Team ID 112, team name `syntax112`.
+- `BTC-FUSION_Project_Guide.pdf` — 39-page beginner guide and pitch kit, printed from
+  `guide-build/project_guide.html`; screenshots in `guide-build/shots/`, captured by
+  `guide-build/capture.mjs` against a running server.
+- `diagrams.html` — six diagram plates redrawn from the built system by
+  `ppt-build/gen_diagrams.py`, which reads a running server on port 8011 and the artefacts.
+- `BTC-FUSION_Documentation.pdf`, `BTC-FUSION_Pitch_Script.pdf`, `Design.pdf` — older and
+  superseded by the guide; their figures are stale.
 
-Inside the repo, `docs/BTC-FUSION_architecture.pdf` (19 pages, 12 figures) is regenerated
-from `docs/architecture_report.html` with headless Chrome.
+Inside the repo, `docs/BTC-FUSION_architecture.pdf` (24 pages) is regenerated from
+`docs/architecture_report.html` with headless Chrome.
